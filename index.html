@@ -528,15 +528,19 @@ function runSim(){
   }
   if(needRerun){setTimeout(runSim,60);return}
 
-  // ── 3. Если КЗ-ток выжил (провода выдержали, автоматов нет) → отключаем источник
-  // Это имитирует срабатывание вводного автомата/предохранителя щитка.
-  // Срабатывает только если в системе есть хотя бы один провод с током > maxA источника.
+  // ── 3. Если КЗ и провода выдержали — источник выбивает ───────────────────
+  // После шага 1: если провода на пути КЗ НЕ сгорели (держат faultA=src.maxA),
+  // значит источник должен выбить как автомат.
+  // Признак: есть провод с током = src.maxA и он не сгорел.
   if(src.on && src.maxA>0){
-    let maxCurrent=0;
+    let hasFaultCurrent=false;
     for(const w of graph.wires.values()){
-      if(!w.burnt) maxCurrent=Math.max(maxCurrent,w.currentA);
+      // Провод на пути КЗ: ток назначен = src.maxA и он выжил (не сгорел)
+      if(!w.burnt && Math.abs(w.currentA - src.maxA) < 0.001 && w.currentA > 0){
+        hasFaultCurrent=true;break;
+      }
     }
-    if(maxCurrent>src.maxA){
+    if(hasFaultCurrent){
       src.on=false;
       const knob=document.getElementById('src-knob');
       const lbl=document.getElementById('src-knob-lbl');
@@ -663,14 +667,12 @@ function computeWireCurrents(lR,nR,totalW){
   const isShort = srcNid && lWire.has(srcNid);
 
   if(isShort){
-    // Ток КЗ ограничен защитой источника.
-    // src.maxA — это номинал вводного автомата источника.
-    // Именно этот ток и «пытается» пройти при КЗ.
-    // Если провод держит >= src.maxA → источник срабатывает (выбивает рубильник).
-    // Если провод держит < src.maxA → провод сгорает первым.
+    // Физика КЗ:
+    // faultA = ток который ПЫТАЕТСЯ пройти = ограничен источником (src.maxA)
+    // Если src.maxA=0 (нет лимита) — ток огромный, горит всё на пути
     const faultA = src.maxA > 0 ? src.maxA : 9999;
 
-    // Трассируем точный путь КЗ: от src_L до точки замыкания и от src_N до неё же
+    // Трассируем ТОЧНЫЙ путь замыкания: только провода от L до точки КЗ и от N до неё же
     const shortNodeIds=new Set();
     for(const nid of lWire){ if(nWire.has(nid)) shortNodeIds.add(nid); }
 
@@ -712,7 +714,7 @@ function computeWireCurrents(lR,nR,totalW){
     tracePathWires(srcLid,shortNodeIds,burnt).forEach(id=>faultWireIds.add(id));
     tracePathWires(srcNid,shortNodeIds,burnt).forEach(id=>faultWireIds.add(id));
 
-    // Назначаем ток только проводам на пути КЗ
+    // Назначаем ток ТОЛЬКО проводам на пути КЗ, остальные = 0
     for(const w of graph.wires.values()){
       if(w.burnt){w.currentA=0;continue}
       if(w.type==='PE'){w.currentA=0;continue}
@@ -726,11 +728,13 @@ function computeWireCurrents(lR,nR,totalW){
       if(w&&!w.burnt) weakestMaxA=Math.min(weakestMaxA,w.maxA);
     }
 
-    // Решение:
-    // Если weakestMaxA >= faultA → все провода держат → источник выбивает как автомат
-    // Если weakestMaxA < faultA  → слабый провод горит, источник НЕ успевает
-    if(faultA<=weakestMaxA||weakestMaxA===Infinity){
-      // Провода выдерживают — источник срабатывает
+    // ФИЗИКА:
+    // faultA (=src.maxA) сравниваем с weakestMaxA (слабейший провод на пути):
+    // • faultA > weakestMaxA → провод не выдерживает → ГОРИТ (runSim шаг 1 сожжёт)
+    //   Источник не замечает (его автомат рассчитан на больший ток)
+    // • faultA <= weakestMaxA → все провода выдерживают → ИСТОЧНИК ВЫБИВАЕТ
+    //   (его автомат срабатывает раньше чем провод успевает нагреться)
+    if(src.maxA > 0 && faultA <= weakestMaxA){
       src.on=false;
       const knob=document.getElementById('src-knob');
       const lbl=document.getElementById('src-knob-lbl');
@@ -738,7 +742,7 @@ function computeWireCurrents(lR,nR,totalW){
       if(lbl) lbl.textContent='ВЫБИТ';
       for(const w of graph.wires.values()) w.currentA=0;
     }
-    // Иначе — провод(а) сгорят в runSim шаге 1 (currentA > maxA)
+    // Иначе runSim шаг 1 сожжёт слабые провода на пути КЗ
     return;
   }
 
@@ -1105,6 +1109,15 @@ cvMain.addEventListener('dblclick',onDbl);
 function onMove(e){
   const{x,y}=cpos2(e,cvMain);mp={x,y};
   if(drawMode)return;
+
+  // Sticker drag (space mode or sticker mode)
+  if(_stkDrag){
+    _stkDrag.stk.x=x-_stkDrag.offX;
+    _stkDrag.stk.y=y-_stkDrag.offY;
+    render();return;
+  }
+
+  // Device drag — wires follow automatically (polyline reads node positions live)
   if(drag){
     const dev=devices.find(d=>d.id===drag.id);
     if(dev){
@@ -1114,12 +1127,21 @@ function onMove(e){
     }
     render();return;
   }
+
   hNode=nearNode(x,y);
   hWire=hNode?null:wireAt(x,y);
   hDev=(!hNode&&!hWire)?devAt(x,y):null;
-  cvMain.style.cursor=delMode?'crosshair':hNode?'crosshair':hDev||hWire?'grab':'crosshair';
-  if(ghostTool) cvMain.style.cursor='copy';
-  if(hNode&&!ghostTool){
+
+  if(spaceMode){
+    const overStk=hitSticker(x,y);
+    cvMain.style.cursor=(hDev||overStk)?'grab':'default';
+  } else if(ghostTool){
+    cvMain.style.cursor='copy';
+  } else {
+    cvMain.style.cursor=delMode?'crosshair':hNode?'crosshair':hDev||hWire?'grab':'crosshair';
+  }
+
+  if(hNode&&!ghostTool&&!spaceMode){
     const tip=document.getElementById('tip');
     tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-24)+'px';
     tip.textContent=`[${hNode.type}] ${hNode.label}`;
@@ -1138,7 +1160,28 @@ function onDown(e){
     if(did){selDev=did;ctxDelete()}else if(wid){selWire=wid;ctxDelete()}
     return;
   }
+  // SPACE MODE — перетащить устройство или стикер
+  if(spaceMode){
+    // Сначала проверяем стикеры
+    const stk=hitSticker(x,y);
+    if(stk){
+      _stkDrag={stk,offX:x-stk.x,offY:y-stk.y};
+      cvMain.style.cursor='grabbing';
+      render();return;
+    }
+    // Потом устройства
+    const did=devAt(x,y);
+    if(did){
+      const dev=devices.find(d=>d.id===did);
+      selDev=did;
+      drag={id:did,offX:x-dev.x,offY:y-dev.y,origX:dev.x,origY:dev.y,didMove:false};
+      cvMain.style.cursor='grabbing';
+    }
+    render();return;
+  }
+  // PLACE DEVICE (ghost tool)
   if(ghostTool){placeDev(x,y,DT_MAP[ghostTool]);return}
+
   if(['wire-l','wire-n','wire-pe'].includes(tool)){
     const wt=tool.split('-')[1].toUpperCase();
     const node=nearNode(x,y);
@@ -1199,15 +1242,34 @@ function onRClick(e){
   drawing=null;selWire=null;selDev=null;setHint();render();
 }
 
+let spaceMode=false; // hold Space = move devices freely
+
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();return}
+  if(e.key===' '&&!e.repeat&&!e.target.matches('input,textarea')){
+    e.preventDefault();
+    if(!spaceMode){
+      spaceMode=true;
+      cvMain.style.cursor='grab';
+      setHint('ПРОБЕЛ: кликни и тяни устройство — провода следуют за ним');
+    }
+    return;
+  }
   if(e.key==='Escape'){
-    drawing=null;selWire=null;selDev=null;ghostTool=null;
+    drawing=null;selWire=null;selDev=null;ghostTool=null;spaceMode=false;
     if(delMode)toggleDelMode(false);
     hideCtx();closeModal();setHint();
     document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
     document.getElementById('btn-wire-l').classList.add('active');
     tool='wire-l';render();
+  }
+});
+
+document.addEventListener('keyup',e=>{
+  if(e.key===' '){
+    spaceMode=false;
+    if(!drag) cvMain.style.cursor='crosshair';
+    setHint();render();
   }
 });
 
@@ -1375,7 +1437,8 @@ function saveProject(){
     src,wCnt,
     devices:devices.map(d=>({id:d.id,type:d.type,x:d.x,y:d.y,wattage:d.wattage,ratedA:d.ratedA,tripped:d.tripped,closed:d.closed,outVolt:d.outVolt})),
     wires:[...graph.wires.values()].map(w=>({id:w.id,from:w.from,to:w.to,type:w.type,sectionIdx:w.sectionIdx,pts:w.pts,burnt:w.burnt})),
-    drawing:cvDraw.toDataURL(),
+    drawStrokes:drawStrokes,
+    stickers:stickers.map(s=>({id:s.id,x:s.x,y:s.y,text:s.text})),
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='project.ekv';a.click();
@@ -1419,10 +1482,11 @@ function restoreProject(data){
     w.burnt=wd.burnt||false;
     if(graph.nodes.has(w.from)&&graph.nodes.has(w.to)) graph.addWire(w);
   }
-  // Drawing layer
-  if(data.drawing){
-    const img=new Image();img.onload=()=>{ctxD.clearRect(0,0,W,H);ctxD.drawImage(img,0,0)};img.src=data.drawing;
-  }
+  // Drawing strokes (world-space, scales with zoom)
+  drawStrokes=(data.drawStrokes||[]);
+  currentStroke=null;
+  // Stickers
+  stickers=(data.stickers||[]).map(s=>({id:s.id,x:s.x,y:s.y,text:s.text}));
   refreshUndoBtn();runSim();render();
 }
 
