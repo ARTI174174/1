@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ЭлектроКВ — Симулятор электрощита</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+:root{
+  --paper:#f4f0e6;--paper2:#ede8d8;--paper3:#e0d9c4;
+  --ink:#1a1208;--ink2:#3a2e18;--ink3:#6a5c3a;
+  --grid:#d0c8b0;--gridM:#b8b098;
+  --acc:#1a3a6a;--accl:#2a5aaa;--accll:#4a7adf;
+  --red:#c01818;--redl:#e83030;--orange:#c06010;
+  --green:#1a6a1a;--greenl:#2a9a2a;
+  --wl:#b04010;--wn:#1040a0;--wpe:#408000;
+  --sh:rgba(0,0,0,0.13);
+  --panel:#f0ebe0;--border:#b0a080;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper2);color:var(--ink);font-family:'Rajdhani',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;user-select:none;font-size:15px}
+
+/* HEADER */
+header{background:var(--panel);border-bottom:2px solid var(--border);height:56px;display:flex;align-items:center;padding:0 14px;gap:9px;flex-shrink:0;z-index:20;box-shadow:0 2px 8px var(--sh)}
+.logo{font-family:'Share Tech Mono',monospace;font-size:20px;color:var(--acc);letter-spacing:1px;white-space:nowrap;font-weight:bold;display:flex;align-items:center;gap:8px}
+.vsep{width:1px;height:30px;background:var(--border);flex-shrink:0}
+.hbtn{background:var(--paper2);border:1.5px solid var(--border);border-radius:4px;color:var(--ink2);font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 11px;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;box-shadow:1px 1px 0 var(--sh)}
+.hbtn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+.hbtn.danger:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.hbtn.active-mode{background:var(--red);color:#fff;border-color:var(--red)}
+.hbtn.draw-active{background:#5a5a5a;color:#fff;border-color:#5a5a5a}
+.hbtn:disabled{opacity:.35;cursor:default;pointer-events:none}
+.hbtn kbd{background:var(--paper3);border:1px solid var(--border);border-radius:2px;padding:0 3px;font-size:9px;color:var(--ink2)}
+.pmeter{display:flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:12px;margin-left:auto;background:var(--paper2);border:1px solid var(--border);border-radius:4px;padding:3px 10px}
+.pval{font-size:14px;font-weight:bold;min-width:58px;text-align:right}
+.plbl{color:var(--ink3);font-size:10px}
+.pval.ok{color:var(--green)}.pval.warn{color:var(--orange)}.pval.err{color:var(--red)}
+#cstatus{font-family:'Share Tech Mono',monospace;font-size:12px;padding:4px 13px;border-radius:4px;border:1.5px solid var(--border);letter-spacing:1px;flex-shrink:0;transition:all .25s;background:var(--paper2)}
+#cstatus.WORKING{color:var(--green);border-color:var(--green);background:#eaf6ea}
+#cstatus.OPEN_CIRCUIT{color:var(--orange);border-color:var(--orange)}
+#cstatus.NO_POWER{color:var(--ink3);border-color:var(--border)}
+#cstatus.OVERLOAD{color:var(--red);border-color:var(--red);background:#fdeaea;animation:pulse .6s infinite}
+#cstatus.LEAKAGE{color:#900;border-color:#900;background:#fdeaea}
+#cstatus.IDLE{color:var(--ink3)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* LAYOUT */
+.workspace{display:flex;flex:1;overflow:hidden}
+
+/* SOURCE PANEL - fixed left */
+.src-panel{
+  width:130px;flex-shrink:0;background:var(--paper);
+  border-right:2.5px solid var(--ink2);
+  display:flex;flex-direction:column;align-items:center;
+  padding:10px 8px;gap:8px;
+  box-shadow:3px 0 10px var(--sh);
+  z-index:15;
+}
+.src-title{font-family:'Share Tech Mono',monospace;font-size:10px;font-weight:bold;color:var(--acc);letter-spacing:1px;text-align:center;border-bottom:1.5px solid var(--border);width:100%;padding-bottom:5px;margin-bottom:2px}
+.src-stat{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--ink2);text-align:center;line-height:1.6}
+.src-stat b{color:var(--acc);font-size:13px}
+.src-btn{background:var(--paper2);border:1.5px solid var(--border);border-radius:5px;color:var(--ink2);font-family:'Share Tech Mono',monospace;font-size:10px;padding:5px 8px;cursor:pointer;transition:all .15s;width:100%;text-align:center}
+.src-btn:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+.src-lever{width:60px;height:90px;background:var(--paper2);border:2px solid var(--ink2);border-radius:6px;position:relative;cursor:pointer;box-shadow:2px 2px 0 var(--sh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.src-lever:hover{border-color:var(--acc)}
+.src-lever-knob{width:40px;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:14px;font-weight:bold;color:#fff;transition:all .25s;box-shadow:1px 1px 3px rgba(0,0,0,.3)}
+.src-lever-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--ink3);text-align:center}
+.src-indicator{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink3)}
+.src-indicator.on{background:#0a0;border-color:#050;box-shadow:0 0 5px #0a0}
+.src-indicator.off{background:#ccc;border-color:#aaa}
+
+/* SIDEBAR */
+.sidebar{width:196px;flex-shrink:0;background:var(--panel);border-right:2px solid var(--border);display:flex;flex-direction:column;padding:8px;gap:5px;overflow-y:auto;box-shadow:2px 0 8px var(--sh)}
+.stitle{font-size:10px;letter-spacing:2px;color:var(--ink3);padding:4px 2px 3px;border-bottom:1.5px solid var(--border);margin-bottom:2px;font-family:'Share Tech Mono',monospace}
+.tbtn{background:var(--paper2);border:1.5px solid var(--border);border-radius:4px;color:var(--ink2);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;padding:8px 9px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .12s;text-align:left;width:100%;box-shadow:1px 1px 0 var(--sh)}
+.tbtn:hover{background:var(--accll);color:#fff;border-color:var(--accll)}
+.tbtn.active{background:var(--acc);color:#fff;border-color:var(--acc);box-shadow:inset 0 1px 3px rgba(0,0,0,.3)}
+.wswatch{width:13px;height:13px;border-radius:2px;border:1px solid rgba(0,0,0,.2);flex-shrink:0}
+.ticon{font-size:16px;width:22px;text-align:center}
+.sec-sel{display:flex;flex-direction:column;gap:3px}
+.sec-opt{background:var(--paper3);border:1px solid var(--border);border-radius:3px;padding:4px 7px;font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;transition:all .12s;display:flex;justify-content:space-between;color:var(--ink3)}
+.sec-opt:hover{border-color:var(--acc);color:var(--acc)}
+.sec-opt.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.iblock{background:var(--paper3);border:1px solid var(--border);border-radius:4px;padding:7px 8px;font-size:11px;line-height:1.7;color:var(--ink3);font-family:'Share Tech Mono',monospace}
+.iblock b{color:var(--ink)}
+
+/* DRAW MODE CONTROLS */
+.draw-controls{display:none;background:var(--paper3);border:1.5px solid var(--border);border-radius:6px;padding:8px;gap:6px;flex-direction:column}
+.draw-controls.show{display:flex}
+.draw-row{display:flex;gap:5px;align-items:center}
+.draw-size{display:flex;flex-direction:column;gap:3px}
+.draw-size label{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--ink3)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+
+/* CANVAS */
+.cwrap{flex:1;position:relative;overflow:hidden;background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px),linear-gradient(var(--gridM) 1px,transparent 1px),linear-gradient(90deg,var(--gridM) 1px,transparent 1px);background-size:20px 20px,20px 20px,100px 100px,100px 100px}
+#cv-draw{position:absolute;top:0;left:0;pointer-events:none;z-index:1}
+#cv-main{position:absolute;top:0;left:0;z-index:2}
+
+/* BOTTOM */
+.bpanel{height:32px;background:var(--panel);border-top:1.5px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--ink3);flex-shrink:0}
+#hint{flex:1}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--paper);border:2px solid var(--ink2);border-radius:8px;padding:22px 24px;min-width:300px;box-shadow:0 16px 48px rgba(0,0,0,.4),4px 4px 0 var(--ink3)}
+.modal h3{font-family:'Share Tech Mono',monospace;color:var(--acc);font-size:14px;margin-bottom:14px;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:6px}
+.mrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
+.mrow label{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--ink);white-space:nowrap}
+.minput{background:var(--paper2);border:1.5px solid var(--border);border-radius:4px;color:var(--acc);font-family:'Share Tech Mono',monospace;font-size:14px;padding:4px 8px;width:120px;outline:none}
+.minput:focus{border-color:var(--acc)}
+.msel{background:var(--paper2);border:1.5px solid var(--border);border-radius:4px;color:var(--ink);font-family:'Share Tech Mono',monospace;font-size:12px;padding:4px 8px;width:160px;outline:none;cursor:pointer}
+.mbtn{background:var(--acc);border:1.5px solid var(--acc);border-radius:4px;color:#fff;font-family:'Share Tech Mono',monospace;font-size:12px;padding:7px 18px;cursor:pointer;transition:all .12s;margin-top:4px}
+.mbtn:hover{background:var(--accll)}
+.mbtn.cancel{background:var(--paper2);border-color:var(--border);color:var(--ink2)}
+.mbtn.cancel:hover{background:var(--red);border-color:var(--red);color:#fff}
+.mbtn.warn-btn{background:var(--orange);border-color:var(--orange)}
+.mbtn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.minfo{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.65;background:var(--paper2);border:1px solid var(--border);border-radius:3px;padding:6px 8px}
+.minfo .hi{color:var(--red);font-weight:bold}.minfo .ok{color:var(--green)}
+
+/* CONTEXT MENU */
+#cmenu{position:fixed;background:var(--paper);border:1.5px solid var(--ink3);border-radius:6px;padding:4px 0;z-index:300;display:none;min-width:170px;box-shadow:3px 3px 0 var(--sh),0 8px 24px rgba(0,0,0,.25)}
+.cmi{padding:8px 16px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--ink);cursor:pointer;transition:background .1s}
+.cmi:hover{background:var(--acc);color:#fff}
+.cmi.danger:hover{background:var(--red);color:#fff}
+.cmi.go{color:var(--green)}.cmi.go:hover{background:var(--green);color:#fff}
+.cms{height:1px;background:var(--border);margin:3px 0}
+#tip{position:fixed;background:var(--ink);color:#fff;border-radius:4px;padding:4px 10px;font-family:'Share Tech Mono',monospace;font-size:11px;pointer-events:none;display:none;z-index:200}
+/* Sticker textarea overlay */
+.sticker-edit{position:absolute;background:#fffde7;border:2px solid #f9a825;border-radius:4px;padding:6px;font-family:'Share Tech Mono',monospace;font-size:12px;resize:both;min-width:100px;min-height:60px;z-index:50;box-shadow:3px 3px 8px rgba(0,0,0,0.2);outline:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚡ ЭлектроКВ</div>
+  <div class="vsep"></div>
+  <button class="hbtn" id="btn-undo" onclick="undo()" disabled>↺ <kbd>Ctrl+Z</kbd></button>
+  <button class="hbtn danger" onclick="clearWires()">✕ Провода</button>
+  <button class="hbtn danger" onclick="resetAll()">↺ Сброс</button>
+  <button class="hbtn active-mode" id="btn-del" onclick="toggleDelMode()">🗑 Удалить</button>
+  <div class="vsep"></div>
+  <button class="hbtn draw-active" id="btn-draw-mode" onclick="toggleDrawMode()">✏ Рисование</button>
+  <div class="vsep"></div>
+  <button class="hbtn" onclick="saveProject()">💾 Сохранить</button>
+  <button class="hbtn" onclick="loadProject()">📂 Открыть</button>
+  <input type="file" id="file-input" accept=".ekv" style="display:none" onchange="loadProjectFile(event)">
+  <div class="vsep"></div>
+  <div class="pmeter">
+    <span class="plbl">U=</span><span class="pval ok" id="pm-v">220 В</span>
+    <span class="plbl">|</span>
+    <span class="plbl">P=</span><span class="pval ok" id="pm-w">0 Вт</span>
+    <span class="plbl">I=</span><span class="pval ok" id="pm-a">0 А</span>
+    <span class="plbl">/</span><span class="pval" id="pm-max" style="color:var(--ink3)">∞ А</span>
+  </div>
+  <div class="vsep"></div>
+  <div id="cstatus" class="IDLE">— IDLE —</div>
+</header>
+
+<div class="workspace">
+
+<!-- SOURCE PANEL (fixed left) -->
+<div class="src-panel" id="src-panel">
+  <div class="src-title">ИСТОЧНИК<br>ПИТАНИЯ</div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+    <div class="src-indicator on" id="src-ind"></div>
+    <div class="src-lever" id="src-lever" onclick="toggleSource()" title="Главный рубильник">
+      <div class="src-lever-knob" id="src-knob" style="background:#1a6a1a">I</div>
+      <div class="src-lever-label" id="src-knob-lbl">ВКЛ</div>
+    </div>
+    <div class="src-lever-label">Главный<br>рубильник</div>
+  </div>
+
+  <div class="src-stat">
+    <div id="src-v-disp" style="font-size:15px;font-weight:bold;color:var(--acc)">220 В</div>
+    <div style="font-size:10px;color:var(--ink3)">напряжение</div>
+    <div id="src-a-disp" style="font-size:13px;font-weight:bold;color:var(--green);margin-top:4px">0 / ∞ А</div>
+    <div style="font-size:10px;color:var(--ink3)">ток / макс.</div>
+  </div>
+
+  <button class="src-btn" onclick="openSourceModal()">⚙ Настройки</button>
+
+  <div style="width:100%;border-top:1px dashed var(--border);padding-top:6px">
+    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-bottom:4px">КЛЕММЫ</div>
+    <div id="src-terminals"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR (tools) -->
+<div class="sidebar">
+  <div class="stitle">ПРОВОДНИКИ</div>
+  <button class="tbtn active" id="btn-wire-l" onclick="selectTool('wire-l')"><span class="wswatch" style="background:#b04010"></span>Провод L (фаза)</button>
+  <button class="tbtn" id="btn-wire-n" onclick="selectTool('wire-n')"><span class="wswatch" style="background:#1040a0"></span>Провод N (ноль)</button>
+  <button class="tbtn" id="btn-wire-pe" onclick="selectTool('wire-pe')"><span class="wswatch" style="background:#408000"></span>Провод PE (земля)</button>
+
+  <div class="stitle" style="margin-top:4px">СЕЧЕНИЕ</div>
+  <div class="sec-sel" id="sec-sel"></div>
+
+  <div style="height:1px;background:var(--border);margin:5px 0"></div>
+  <div class="stitle">АННОТАЦИИ</div>
+  <button class="tbtn" id="btn-sticker" onclick="toggleStickerMode()"><span class="ticon">📝</span>Стикер</button>
+  <div style="height:1px;background:var(--border);margin:5px 0"></div>
+  <div class="stitle">УСТРОЙСТВА</div>
+  <button class="tbtn" id="btn-lamp" onclick="selectTool('lamp')"><span class="ticon">💡</span>Лампа</button>
+  <button class="tbtn" id="btn-socket" onclick="selectTool('socket')"><span class="ticon">🔌</span>Розетка</button>
+  <button class="tbtn" id="btn-oven" onclick="selectTool('oven')"><span class="ticon">🔥</span>Духовка</button>
+  <button class="tbtn" id="btn-junction" onclick="selectTool('junction')"><span class="ticon">●</span>Скрутка</button>
+  <button class="tbtn" id="btn-bus" onclick="selectTool('bus')"><span class="ticon">▬</span>Шина</button>
+  <button class="tbtn" id="btn-breaker" onclick="selectTool('breaker')"><span class="ticon">⚡</span>Автомат</button>
+  <button class="tbtn" id="btn-difbreaker" onclick="selectTool('difbreaker')"><span class="ticon">🛡</span>Диф. автомат</button>
+  <button class="tbtn" id="btn-switch2p" onclick="selectTool('switch2p')"><span class="ticon">🔀</span>Рубильник 2P</button>
+  <button class="tbtn" id="btn-voltctrl" onclick="selectTool('voltctrl')"><span class="ticon">⚙</span>Рег. напряжения</button>
+  <button class="tbtn" id="btn-ammeter" onclick="selectTool('ammeter')"><span class="ticon">🔴</span>Амперметр</button>
+  <button class="tbtn" id="btn-voltmeter" onclick="selectTool('voltmeter')"><span class="ticon">🔵</span>Вольтметр</button>
+
+  <div style="height:1px;background:var(--border);margin:5px 0"></div>
+  <div class="stitle">РИСОВАНИЕ</div>
+  <div class="draw-controls" id="draw-controls">
+    <button class="tbtn" id="btn-pencil" onclick="setDrawTool('pencil')">✏ Карандаш</button>
+    <button class="tbtn" id="btn-line" onclick="setDrawTool('line')">╱ Линия</button>
+    <button class="tbtn" id="btn-eraser" onclick="setDrawTool('eraser')">⌫ Ластик</button>
+    <div class="draw-size">
+      <label>Толщина: <span id="brush-size-lbl">4</span>px</label>
+      <input type="range" id="brush-size" min="1" max="40" value="4" oninput="document.getElementById('brush-size-lbl').textContent=this.value">
+    </div>
+    <button class="tbtn" onclick="clearDrawing()" style="font-size:11px">🗑 Очистить рисунок</button>
+    <button class="tbtn" onclick="toggleDrawMode()" style="font-size:11px;background:var(--acc);color:#fff">✓ Выйти</button>
+  </div>
+
+  <div style="height:1px;background:var(--border);margin:5px 0"></div>
+  <div class="iblock">
+    <b>Управление:</b><br>
+    ЛКМ на узел → провод<br>
+    ПКМ → точка излома<br>
+    ЛКМ → узел → финиш<br>
+    <br>
+    ЛКМ на объект → выбор<br>
+    Тяни → перемещение<br>
+    2×ЛКМ → настройки<br>
+    ПКМ → меню<br>
+    <kbd style="color:var(--ink)">Esc</kbd> — сброс
+  </div>
+</div>
+
+<!-- CANVAS AREA -->
+<div class="cwrap" id="cwrap">
+  <canvas id="cv-draw"></canvas>
+  <canvas id="cv-main"></canvas>
+</div>
+</div>
+
+<div class="bpanel">
+  <span id="hint">Выбери инструмент → кликни на клемму источника чтобы начать провод</span>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-body"></div>
+</div>
+
+<div id="cmenu">
+  <div class="cmi" id="cm-props" onclick="ctxProps()">⚙ Настройки</div>
+  <div class="cmi go" id="cm-toggle" onclick="ctxToggle()" style="display:none">⏻ Вкл / Выкл</div>
+  <div class="cms"></div>
+  <div class="cmi danger" onclick="ctxDelete()">🗑 Удалить</div>
+  <div class="cms"></div>
+  <div class="cmi" onclick="hideCtx()">✕ Отмена</div>
+</div>
+<div id="tip"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════ */
+const VOLT_NOM=220;
+const WIRE_SECTIONS=[
+  {mm:0.5, maxA:11, label:'0.5 мм²'},
+  {mm:0.75,maxA:12, label:'0.75 мм²'},
+  {mm:1.5, maxA:15, label:'1.5 мм²'},
+  {mm:2.5, maxA:21, label:'2.5 мм²'},
+  {mm:4,   maxA:38, label:'4 мм²'},
+  {mm:6,   maxA:34, label:'6 мм²'},
+  {mm:10,  maxA:50, label:'10 мм²'},
+];
+const BREAKER_AMPS=[10,15,20,25,32,40,50,60];
+const NT={L:'L',N:'N',PE:'PE',IN:'IN',OUT:'OUT',BUS:'BUS',JNC:'JNC'};
+const DT={LAMP:'LAMP',SOCKET:'SOCKET',OVEN:'OVEN',BUS:'BUS',
+  BREAKER:'BREAKER',DIFBREAKER:'DIFBREAKER',SWITCH2P:'SWITCH2P',
+  VOLTCTRL:'VOLTCTRL',JUNCTION:'JUNCTION',AMMETER:'AMMETER',VOLTMETER:'VOLTMETER'};
+const WCOLOR={L:'#b04010',N:'#1040a0',PE:'#408000'};
+const NODE_R=9,HIT_W=11;
+const INK='#1a1208',INK2='#3a2e18',INK3='#6a5c3a',PAPER='#f4f0e6',PAPER2='#ede8d8';
+
+/* ═══════════════════════════════════════════════
+   DATA CLASSES
+═══════════════════════════════════════════════ */
+class CNode{
+  constructor(id,x,y,type,devId=null,label=''){
+    this.id=id;this.x=x;this.y=y;this.type=type;
+    this.devId=devId;this.label=label;this.conns=[];
+  }
+  dist(x,y){return Math.hypot(this.x-x,this.y-y)}
+}
+
+class CWire{
+  constructor(id,from,to,type,secIdx=2,pts=[]){
+    this.id=id;this.from=from;this.to=to;this.type=type;
+    this.sectionIdx=secIdx;this.pts=[...pts];
+    this.currentA=0;this.burnt=false;
+  }
+  get section(){return WIRE_SECTIONS[this.sectionIdx]}
+  get maxA(){return this.section.maxA}
+  polyline(graph){
+    const a=graph.nodes.get(this.from),b=graph.nodes.get(this.to);
+    if(!a||!b)return[];
+    return[{x:a.x,y:a.y},...this.pts,{x:b.x,y:b.y}];
+  }
+  clone(){const w=new CWire(this.id,this.from,this.to,this.type,this.sectionIdx,this.pts.map(p=>({...p})));w.burnt=this.burnt;return w}
+}
+
+class CDevice{
+  constructor(id,type,x,y){
+    this.id=id;this.type=type;this.x=x;this.y=y;
+    this.state='IDLE';this.selected=false;
+    this.wattage=100;this.ratedA=16;this.tripped=false;
+    this.closed=true;this.outVolt=220;this.slots=10;
+    this.measuredA=0; this.measuredV=0; // for ammeter/voltmeter
+    if(type===DT.SOCKET){this.wattage=2000}
+    if(type===DT.OVEN){this.wattage=3500}
+    this.nodes=this._mkNodes();
+  }
+  _mkNodes(){
+    const{id,type,x,y}=this;
+    const n=(s,nx,ny,t,l)=>new CNode(id+s,nx,ny,t,id,l);
+    if(type===DT.LAMP)     return[n('_in',x-44,y,NT.IN,'IN'),n('_out',x+44,y,NT.OUT,'OUT')];
+    // Socket: L, N above, PE also above (all 3 nodes top)
+    if(type===DT.SOCKET)   return[n('_l',x-32,y-36,NT.IN,'L'),n('_n',x+32,y-36,NT.OUT,'N'),n('_pe',x,y-36,NT.PE,'PE')];
+    if(type===DT.OVEN)     return[n('_l',x-44,y-30,NT.IN,'L'),n('_n',x,y-30,NT.OUT,'N'),n('_pe',x+44,y-30,NT.PE,'PE')];
+    if(type===DT.BUS){
+      const ns=[n('_main',x,y-38,NT.IN,'IN')];
+      for(let i=0;i<10;i++) ns.push(n('_p'+i,x-90+i*20,y+30,NT.BUS,'P'+(i+1)));
+      return ns;
+    }
+    if(type===DT.BREAKER||type===DT.DIFBREAKER)
+      return[n('_in',x,y-44,NT.IN,'IN'),n('_out',x,y+44,NT.OUT,'OUT')];
+    if(type===DT.SWITCH2P)
+      return[n('_lin',x-22,y-36,NT.IN,'L-IN'),n('_lout',x-22,y+36,NT.OUT,'L-OUT'),
+             n('_nin',x+22,y-36,NT.IN,'N-IN'),n('_nout',x+22,y+36,NT.OUT,'N-OUT')];
+    if(type===DT.VOLTCTRL)
+      return[n('_in',x-50,y,NT.IN,'IN'),n('_out',x+50,y,NT.OUT,'OUT')];
+    if(type===DT.JUNCTION)
+      return[n('_j',x,y,NT.JNC,'●')];
+    if(type===DT.AMMETER)
+      return[n('_in',x-36,y,NT.IN,'A-IN'),n('_out',x+36,y,NT.OUT,'A-OUT')];
+    if(type===DT.VOLTMETER)
+      return[n('_l',x-36,y,NT.IN,'V-L'),n('_n',x+36,y,NT.OUT,'V-N')];
+    return[];
+  }
+  getNodeById(sfx){return this.nodes.find(n=>n.id===this.id+sfx)}
+  hit(x,y){
+    if(this.type===DT.JUNCTION) return Math.hypot(x-this.x,y-this.y)<14;
+    const b=this._bbox();return x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h;
+  }
+  _bbox(){
+    const s={LAMP:{x:-54,y:-44,w:108,h:88},SOCKET:{x:-50,y:-50,w:100,h:96},OVEN:{x:-58,y:-46,w:116,h:92},
+      BUS:{x:-98,y:-46,w:196,h:84},BREAKER:{x:-26,y:-54,w:52,h:108},
+      DIFBREAKER:{x:-30,y:-54,w:60,h:108},SWITCH2P:{x:-36,y:-44,w:72,h:88},
+      VOLTCTRL:{x:-56,y:-32,w:112,h:64},JUNCTION:{x:-12,y:-12,w:24,h:24},
+      AMMETER:{x:-42,y:-28,w:84,h:56},VOLTMETER:{x:-42,y:-28,w:84,h:56}}[this.type]||{x:-40,y:-30,w:80,h:60};
+    return{x:this.x+s.x,y:this.y+s.y,w:s.w,h:s.h};
+  }
+  moveTo(x,y){const dx=x-this.x,dy=y-this.y;this.x=x;this.y=y;this.nodes.forEach(n=>{n.x+=dx;n.y+=dy})}
+  clone(){
+    const d=new CDevice(this.id,this.type,this.x,this.y);
+    d.wattage=this.wattage;d.ratedA=this.ratedA;d.tripped=this.tripped;
+    d.closed=this.closed;d.outVolt=this.outVolt;
+    d.nodes=this.nodes.map(n=>new CNode(n.id,n.x,n.y,n.type,n.devId,n.label));
+    return d;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   GRAPH
+═══════════════════════════════════════════════ */
+class Graph{
+  constructor(){this.nodes=new Map();this.wires=new Map();this._adj=new Map();this._wadj=new Map()}
+  // _wadj: nodeId → Map<neighborId, Set<wire>>  (supports multiple parallel wires)
+  addNode(n){
+    this.nodes.set(n.id,n);
+    if(!this._adj.has(n.id)) this._adj.set(n.id,new Set());
+    if(!this._wadj.has(n.id)) this._wadj.set(n.id,new Map());
+  }
+  addWire(w){
+    this.wires.set(w.id,w);
+    const a=w.from,b=w.to;
+    this._adj.get(a)?.add(b);this._adj.get(b)?.add(a);
+    // Store as Set of wires (supports parallel)
+    if(!this._wadj.get(a)) this._wadj.set(a,new Map());
+    if(!this._wadj.get(b)) this._wadj.set(b,new Map());
+    if(!this._wadj.get(a).has(b)) this._wadj.get(a).set(b,new Set());
+    if(!this._wadj.get(b).has(a)) this._wadj.get(b).set(a,new Set());
+    this._wadj.get(a).get(b).add(w);
+    this._wadj.get(b).get(a).add(w);
+    this.nodes.get(a)?.conns.push(w.id);
+    this.nodes.get(b)?.conns.push(w.id);
+  }
+  removeWire(id){
+    const w=this.wires.get(id);if(!w)return;
+    const a=w.from,b=w.to;
+    this._wadj.get(a)?.get(b)?.delete(w);
+    this._wadj.get(b)?.get(a)?.delete(w);
+    // Remove neighbor entry if no more wires between them
+    if(this._wadj.get(a)?.get(b)?.size===0){
+      this._wadj.get(a).delete(b);this._adj.get(a)?.delete(b);
+    }
+    if(this._wadj.get(b)?.get(a)?.size===0){
+      this._wadj.get(b).delete(a);this._adj.get(b)?.delete(a);
+    }
+    [a,b].forEach(nid=>{const n=this.nodes.get(nid);if(n)n.conns=n.conns.filter(x=>x!==id)});
+    this.wires.delete(id);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   SIMULATION
+═══════════════════════════════════════════════ */
+const graph=new Graph();
+let devices=[],srcs=[];
+let src={maxA:63,volt:220,on:true};
+let wCnt=0;
+
+function bfsFull(startId,burnt){
+  if(!startId)return new Set();
+  const vis=new Set([startId]),q=[startId];
+  while(q.length){
+    const cur=q.shift();
+    // Iterate neighbors; for each neighbor check if ANY non-burnt wire exists
+    for(const[nb,wireSet]of(graph._wadj.get(cur)||new Map())){
+      if(vis.has(nb))continue;
+      // Can traverse if at least one wire between cur and nb is not burnt
+      const canPass=[...wireSet].some(w=>!burnt.has(w.id));
+      if(canPass){vis.add(nb);q.push(nb)}
+    }
+    const node=graph.nodes.get(cur);
+    if(!node?.devId)continue;
+    const dev=devices.find(d=>d.id===node.devId);
+    if(!dev)continue;
+    for(const nid of devPropagate(dev,cur)){
+      if(!vis.has(nid)){vis.add(nid);q.push(nid)}
+    }
+  }
+  return vis;
+}
+
+function devPropagate(dev,fromId){
+  const res=new Set();
+  if(dev.tripped)return res;
+  if(dev.type===DT.BREAKER||dev.type===DT.DIFBREAKER){
+    const a=dev.getNodeById('_in'),b=dev.getNodeById('_out');
+    if(a&&b){if(fromId===a.id)res.add(b.id);else if(fromId===b.id)res.add(a.id)}
+  }
+  else if(dev.type===DT.SWITCH2P){
+    if(!dev.closed)return res;
+    const pairs=[['_lin','_lout'],['_nin','_nout']];
+    for(const[as,bs]of pairs){
+      const a=dev.getNodeById(as),b=dev.getNodeById(bs);
+      if(a&&b){if(fromId===a.id)res.add(b.id);else if(fromId===b.id)res.add(a.id)}
+    }
+  }
+  else if(dev.type===DT.VOLTCTRL){
+    const a=dev.getNodeById('_in'),b=dev.getNodeById('_out');
+    if(a&&b){if(fromId===a.id)res.add(b.id);else if(fromId===b.id)res.add(a.id)}
+  }
+  else if(dev.type===DT.BUS||dev.type===DT.JUNCTION){
+    for(const n of dev.nodes) if(n.id!==fromId) res.add(n.id);
+  }
+  return res;
+}
+
+function runSim(){
+  for(const w of graph.wires.values()) w.currentA=0;
+  const burnt=new Set([...graph.wires.values()].filter(w=>w.burnt).map(w=>w.id));
+
+  const srcL=srcs.find(n=>n.type===NT.L);
+  const srcN=srcs.find(n=>n.type===NT.N);
+  const srcPE=srcs.find(n=>n.type===NT.PE);
+
+  const lR=src.on?bfsFull(srcL?.id,burnt):new Set();
+  const nR=src.on?bfsFull(srcN?.id,burnt):new Set();
+  const peR=src.on?bfsFull(srcPE?.id,burnt):new Set();
+
+  let totalW=0;
+  for(const d of devices) totalW+=evalDevice(d,lR,nR,peR);
+
+  computeWireCurrents(lR,nR,totalW);
+
+  let needRerun=false;
+
+  // ── 1. Горят только провода превысившие свой лимит ────────────────────────
+  // КЗ-ток назначен только проводам в цепи замыкания (в computeWireCurrents).
+  // Провода вне цепи КЗ имеют currentA=0 → не горят.
+  for(const w of graph.wires.values()){
+    if(w.burnt) continue;
+    if(w.currentA > w.maxA + 0.001){
+      w.burnt=true;
+      needRerun=true;
+    }
+  }
+  if(needRerun){setTimeout(runSim,60);return}
+
+  // ── 2. Автоматы на пути тока → выбивают если ток > номинала ───────────────
+  for(const d of devices){
+    if(!(d.type===DT.BREAKER||d.type===DT.DIFBREAKER)||d.tripped) continue;
+    const nIn=d.getNodeById('_in');
+    if(!nIn) continue;
+    // Ток через автомат = сумма токов проводов подходящих к IN-узлу
+    let inCurrent=0;
+    for(const w of graph.wires.values()){
+      if(w.burnt) continue;
+      if(w.from===nIn.id||w.to===nIn.id) inCurrent+=w.currentA;
+    }
+    if(inCurrent>d.ratedA){
+      d.tripped=true;
+      needRerun=true;
+    }
+  }
+  if(needRerun){setTimeout(runSim,60);return}
+
+  // ── 3. Если КЗ-ток выжил (провода выдержали, автоматов нет) → отключаем источник
+  // Это имитирует срабатывание вводного автомата/предохранителя щитка.
+  // Срабатывает только если в системе есть хотя бы один провод с током > maxA источника.
+  if(src.on && src.maxA>0){
+    let maxCurrent=0;
+    for(const w of graph.wires.values()){
+      if(!w.burnt) maxCurrent=Math.max(maxCurrent,w.currentA);
+    }
+    if(maxCurrent>src.maxA){
+      src.on=false;
+      const knob=document.getElementById('src-knob');
+      const lbl=document.getElementById('src-knob-lbl');
+      if(knob){knob.style.background='#c01818';knob.textContent='0'}
+      if(lbl) lbl.textContent='ВЫБИТ';
+      needRerun=true;
+    }
+  }
+  if(needRerun){setTimeout(runSim,60);return}
+
+  // ── 4. Обновляем дисплей ───────────────────────────────────────────────────
+  const totalA=totalW/src.volt;
+  const ov=src.maxA>0&&totalA>src.maxA;
+  setPM('pm-v',src.volt+' В','ok');
+  setPM('pm-w',fmtW(totalW),ov?'err':totalW>0?'ok':'');
+  setPM('pm-a',fmtA(totalA),ov?'err':totalA>0?'ok':'');
+  setPM('pm-max',src.maxA>0?src.maxA+' А':'∞ А','');
+
+  document.getElementById('src-v-disp').textContent=src.volt+' В';
+  document.getElementById('src-a-disp').textContent=`${fmtA(totalA)} / ${src.maxA>0?src.maxA+' А':'∞'}`;
+  document.getElementById('src-a-disp').style.color=ov?'#c01818':totalA>0?'#1a6a1a':'#6a5c3a';
+  document.getElementById('src-ind').className='src-indicator '+(src.on?'on':'off');
+
+  const states=devices.map(d=>d.state);
+  let g='IDLE';
+  if(!src.on)      g='NO_POWER';
+  else if(ov)      g='OVERLOAD';
+  else if(states.includes('LEAKAGE'))      g='LEAKAGE';
+  else if(states.includes('WORKING'))      g='WORKING';
+  else if(states.includes('OPEN_CIRCUIT')) g='OPEN_CIRCUIT';
+  else if(states.includes('NO_POWER'))     g='NO_POWER';
+  updateStatus(g);
+  render();
+}
+
+function evalDevice(d,lR,nR,peR){
+  if(d.type===DT.LAMP)    return evalConsumer(d,lR,nR,peR,'_in','_out',false);
+  if(d.type===DT.SOCKET)  return evalConsumer(d,lR,nR,peR,'_l','_n',true,'_pe');
+  if(d.type===DT.OVEN)    return evalConsumer(d,lR,nR,peR,'_l','_n',true,'_pe');
+  if(d.type===DT.BUS){d.state=d.nodes.some(n=>lR.has(n.id)||nR.has(n.id))?'WORKING':'NO_POWER';return 0}
+  if(d.type===DT.JUNCTION){d.state=d.nodes.some(n=>lR.has(n.id)||nR.has(n.id))?'WORKING':'IDLE';return 0}
+  if(d.type===DT.BREAKER||d.type===DT.DIFBREAKER){d.state=d.tripped?'TRIPPED':'WORKING';return 0}
+  if(d.type===DT.SWITCH2P){const li=d.getNodeById('_lin');d.state=d.closed&&li&&lR.has(li.id)?'WORKING':'NO_POWER';return 0}
+  if(d.type===DT.VOLTCTRL){const ni=d.getNodeById('_in');d.state=ni&&lR.has(ni.id)?'WORKING':'NO_POWER';return 0}
+  if(d.type===DT.AMMETER){
+    const nIn=d.getNodeById('_in'),nOut=d.getNodeById('_out');
+    const active=nIn&&nOut&&(lR.has(nIn.id)||lR.has(nOut.id)||nR.has(nIn.id)||nR.has(nOut.id));
+    d.state=active?'WORKING':'NO_POWER';
+    // measuredA updated in computeWireCurrents after wire calc
+    return 0;
+  }
+  if(d.type===DT.VOLTMETER){
+    const nL=d.getNodeById('_l'),nN=d.getNodeById('_n');
+    const hasL=nL&&lR.has(nL.id),hasN=nN&&nR.has(nN.id);
+    d.state=(hasL||hasN)?'WORKING':'NO_POWER';
+    d.measuredV=(hasL&&hasN)?src.volt:0;
+    return 0;
+  }
+  d.state='IDLE';return 0;
+}
+
+function evalConsumer(d,lR,nR,peR,lSfx,nSfx,needPE,peSfx=null){
+  const nL=d.getNodeById(lSfx),nN=d.getNodeById(nSfx),nPE=peSfx?d.getNodeById(peSfx):null;
+  if(!nL||!nN){d.state='OPEN_CIRCUIT';return 0}
+  const hasL=lR.has(nL.id),hasN=nR.has(nN.id);
+  const hasLr=lR.has(nN.id),hasNr=nR.has(nL.id);
+  const powered=(hasL&&hasN)||(hasLr&&hasNr);
+  const hasPE=nPE&&peR.has(nPE.id);
+  if(needPE&&!hasPE){d.state='NO_POWER';return 0}
+  if(!powered){d.state=lR.has(nL.id)||lR.has(nN.id)?'OPEN_CIRCUIT':'NO_POWER';return 0}
+  if(peR.has(nL.id)&&!hasPE){d.state='LEAKAGE';return d.wattage}
+  d.state='WORKING';return d.wattage;
+}
+
+function computeWireCurrents(lR,nR,totalW){
+  const burnt=new Set([...graph.wires.values()].filter(w=>w.burnt).map(w=>w.id));
+  const srcLid=srcs.find(n=>n.type===NT.L)?.id;
+  const srcNid=srcs.find(n=>n.type===NT.N)?.id;
+
+  // ═══════════════════════════════════════════════════════════════
+  // ДЕТЕКЦИЯ КОРОТКОГО ЗАМЫКАНИЯ
+  //
+  // Проблема с lR/nR: bfsFull проходит ЧЕРЕЗ потребителей (лампа,
+  // розетка), поэтому lR и nR всегда пересекаются при подключённой нагрузке.
+  // Это НЕ КЗ — это нормальная цепь.
+  //
+  // Правильный метод: BFS только по ПРОВОДАМ и пассивным устройствам
+  // (автомат, шина, скрутка, рубильник) — без прохода через потребителей.
+  // Если из L-клеммы такой BFS достигает N-клеммы → КЗ.
+  // ═══════════════════════════════════════════════════════════════
+
+  function bfsWiresOnly(startId, burntSet){
+    // BFS по проводам + пассивные девайсы, НЕ проходит через потребителей
+    if(!startId) return new Set();
+    const vis=new Set([startId]), q=[startId];
+    while(q.length){
+      const cur=q.shift();
+      // Через провода
+      for(const[nb,wireSet] of (graph._wadj.get(cur)||new Map())){
+        if(vis.has(nb)) continue;
+        const canPass=[...wireSet].some(w=>!burntSet.has(w.id));
+        if(!canPass) continue;
+        vis.add(nb); q.push(nb);
+      }
+      // Через пассивные устройства (не потребители)
+      const node=graph.nodes.get(cur);
+      if(!node?.devId) continue;
+      const dev=devices.find(d=>d.id===node.devId);
+      if(!dev) continue;
+      // Пропускаем потребителей — через них ток идёт как через нагрузку, не как КЗ
+      if(dev.type===DT.LAMP||dev.type===DT.SOCKET||dev.type===DT.OVEN) continue;
+      for(const nid of devPropagate(dev,cur)){
+        if(!vis.has(nid)){vis.add(nid); q.push(nid)}
+      }
+    }
+    return vis;
+  }
+
+  const lWire=src.on ? bfsWiresOnly(srcLid, burnt) : new Set();
+  const nWire=src.on ? bfsWiresOnly(srcNid, burnt) : new Set();
+
+  // КЗ: L-провод достигает узла N-клеммы (или наоборот)
+  // Достаточно проверить что src_N достижим из src_L через провода
+  const isShort = srcNid && lWire.has(srcNid);
+
+  if(isShort){
+    // Ток КЗ ограничен защитой источника.
+    // src.maxA — это номинал вводного автомата источника.
+    // Именно этот ток и «пытается» пройти при КЗ.
+    // Если провод держит >= src.maxA → источник срабатывает (выбивает рубильник).
+    // Если провод держит < src.maxA → провод сгорает первым.
+    const faultA = src.maxA > 0 ? src.maxA : 9999;
+
+    // Трассируем точный путь КЗ: от src_L до точки замыкания и от src_N до неё же
+    const shortNodeIds=new Set();
+    for(const nid of lWire){ if(nWire.has(nid)) shortNodeIds.add(nid); }
+
+    function tracePathWires(startId, targetIds, burntSet){
+      const visited=new Map(); visited.set(startId,null);
+      const q=[startId]; let found=null;
+      outer: while(q.length){
+        const cur=q.shift();
+        if(targetIds.has(cur)){found=cur;break}
+        for(const[nb,wireSet] of (graph._wadj.get(cur)||new Map())){
+          if(visited.has(nb)) continue;
+          const canPass=[...wireSet].some(w=>!burntSet.has(w.id));
+          if(!canPass) continue;
+          visited.set(nb,cur); q.push(nb);
+          if(targetIds.has(nb)){found=nb;break outer}
+        }
+        const node=graph.nodes.get(cur);
+        if(node?.devId){
+          const dev=devices.find(d=>d.id===node.devId);
+          if(dev&&dev.type!==DT.LAMP&&dev.type!==DT.SOCKET&&dev.type!==DT.OVEN){
+            for(const nid of devPropagate(dev,cur)){
+              if(!visited.has(nid)){visited.set(nid,cur);q.push(nid)}
+            }
+          }
+        }
+      }
+      if(!found) return new Set();
+      const pathWires=new Set(); let cur=found;
+      while(visited.get(cur)!==null){
+        const prev=visited.get(cur);
+        const ws=graph._wadj.get(prev)?.get(cur)||graph._wadj.get(cur)?.get(prev);
+        if(ws){const live=[...ws].find(w=>!burntSet.has(w.id));if(live)pathWires.add(live.id)}
+        cur=prev;
+      }
+      return pathWires;
+    }
+
+    const faultWireIds=new Set();
+    tracePathWires(srcLid,shortNodeIds,burnt).forEach(id=>faultWireIds.add(id));
+    tracePathWires(srcNid,shortNodeIds,burnt).forEach(id=>faultWireIds.add(id));
+
+    // Назначаем ток только проводам на пути КЗ
+    for(const w of graph.wires.values()){
+      if(w.burnt){w.currentA=0;continue}
+      if(w.type==='PE'){w.currentA=0;continue}
+      w.currentA = faultWireIds.has(w.id) ? faultA : 0;
+    }
+
+    // Самый слабый провод на пути КЗ
+    let weakestMaxA=Infinity;
+    for(const wid of faultWireIds){
+      const w=graph.wires.get(wid);
+      if(w&&!w.burnt) weakestMaxA=Math.min(weakestMaxA,w.maxA);
+    }
+
+    // Решение:
+    // Если weakestMaxA >= faultA → все провода держат → источник выбивает как автомат
+    // Если weakestMaxA < faultA  → слабый провод горит, источник НЕ успевает
+    if(faultA<=weakestMaxA||weakestMaxA===Infinity){
+      // Провода выдерживают — источник срабатывает
+      src.on=false;
+      const knob=document.getElementById('src-knob');
+      const lbl=document.getElementById('src-knob-lbl');
+      if(knob){knob.style.background='#c01818';knob.textContent='0'}
+      if(lbl) lbl.textContent='ВЫБИТ';
+      for(const w of graph.wires.values()) w.currentA=0;
+    }
+    // Иначе — провод(а) сгорят в runSim шаге 1 (currentA > maxA)
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // НОРМАЛЬНЫЙ РЕЖИМ: параллельные провода делят ток поровну
+  // ═══════════════════════════════════════════════════════════════
+
+  const groups=new Map();
+  for(const w of graph.wires.values()){
+    if(w.burnt||w.type==='PE') continue;
+    const key=[w.from,w.to].sort().join('\x00');
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(w);
+  }
+
+  for(const grp of groups.values()){
+    const blockedIds=new Set([...burnt,...grp.map(w=>w.id)]);
+    const lRb=bfsFull(srcLid,blockedIds);
+    const nRb=bfsFull(srcNid,blockedIds);
+    let groupLoad=0;
+    for(const d of devices){
+      if(d.state!=='WORKING') continue;
+      const pairs=
+        d.type===DT.LAMP             ? [['_in','_out']] :
+        (d.type===DT.SOCKET||d.type===DT.OVEN) ? [['_l','_n']] : [];
+      for(const[ls,ns] of pairs){
+        const nL=d.getNodeById(ls), nN=d.getNodeById(ns);
+        if(!nL||!nN) continue;
+        const wasOn=(lR.has(nL.id)&&nR.has(nN.id))||(lR.has(nN.id)&&nR.has(nL.id));
+        const nowOn=(lRb.has(nL.id)&&nRb.has(nN.id))||(lRb.has(nN.id)&&nRb.has(nL.id));
+        if(wasOn&&!nowOn) groupLoad+=d.wattage;
+      }
+    }
+    const eachI=(groupLoad/src.volt)/grp.length;
+    grp.forEach(w=>w.currentA=eachI);
+  }
+
+  for(const w of graph.wires.values()){
+    if(w.burnt) w.currentA=0;
+  }
+
+  // Показания амперметров: сумма токов проводов на IN-узле
+  for(const d of devices){
+    if(d.type!==DT.AMMETER) continue;
+    const nIn=d.getNodeById('_in');
+    if(!nIn){d.measuredA=0;continue}
+    let a=0;
+    for(const w of graph.wires.values()){
+      if(!w.burnt&&(w.from===nIn.id||w.to===nIn.id)) a+=w.currentA;
+    }
+    d.measuredA=Math.round(a*100)/100;
+    d.state=a>0?'WORKING':'NO_POWER';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CANVAS & STATE
+═══════════════════════════════════════════════ */
+const cvMain=document.getElementById('cv-main');
+const cvDraw=document.getElementById('cv-draw');
+const ctx=cvMain.getContext('2d');
+const ctxD=cvDraw.getContext('2d');
+const wrap=document.getElementById('cwrap');
+
+let W,H;
+// Zoom & pan state
+let zoom=1, panX=0, panY=0;
+// Drawing layer stored as world-space strokes (scales with zoom)
+let drawStrokes=[]; // [{type:'pencil'|'line', pts:[{x,y}], sz, color}]
+let currentStroke=null;
+let _lineStart=null;
+let _eraserPos=null;
+
+function drawDrawingLayer(){
+  ctx.save();
+  for(const stroke of drawStrokes){
+    if(!stroke.pts.length) continue;
+    ctx.strokeStyle=stroke.color||'rgba(50,50,50,0.8)';
+    ctx.lineWidth=stroke.sz/zoom; // world-space width
+    ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();
+    ctx.moveTo(stroke.pts[0].x,stroke.pts[0].y);
+    for(let i=1;i<stroke.pts.length;i++) ctx.lineTo(stroke.pts[i].x,stroke.pts[i].y);
+    ctx.stroke();
+  }
+  // Current stroke preview
+  if(currentStroke&&currentStroke.pts.length>1){
+    ctx.strokeStyle=currentStroke.color||'rgba(50,50,50,0.8)';
+    ctx.lineWidth=currentStroke.sz/zoom;
+    ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();
+    ctx.moveTo(currentStroke.pts[0].x,currentStroke.pts[0].y);
+    for(let i=1;i<currentStroke.pts.length;i++) ctx.lineTo(currentStroke.pts[i].x,currentStroke.pts[i].y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function clearDrawing(){drawStrokes=[];currentStroke=null;render()}
+function resize(){
+  W=wrap.clientWidth;H=wrap.clientHeight;
+  cvMain.width=W;cvMain.height=H;
+  cvDraw.width=W;cvDraw.height=H;
+  render();
+}
+window.addEventListener('resize',resize);
+
+// Ctrl+wheel = zoom; plain wheel = pan
+wrap.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(e.ctrlKey){
+    const factor=e.deltaY<0?1.12:1/1.12;
+    const rect=cvMain.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    const oldZoom=zoom;
+    zoom=Math.max(0.15,Math.min(8,zoom*factor));
+    panX=mx-(mx-panX)*(zoom/oldZoom);
+    panY=my-(my-panY)*(zoom/oldZoom);
+  } else {
+    panX-=e.deltaX; panY-=e.deltaY;
+  }
+  render();
+},{passive:false});
+
+let tool='wire-l',curSec=2;
+let drawing=null;
+let mp={x:0,y:0};
+let hNode=null,hWire=null,hDev=null;
+let selWire=null,selDev=null;
+let drag=null;
+let delMode=false;
+let drawMode=false,drawTool='pencil',isDrawing=false;
+let ghostTool=null;
+const hist=[];
+let stickers=[];
+let stickerMode=false;
+let editingSticker=null;
+
+const DEVICE_TOOLS=['lamp','socket','oven','junction','bus','breaker','difbreaker','switch2p','voltctrl','ammeter','voltmeter'];
+const DT_MAP={lamp:DT.LAMP,socket:DT.SOCKET,oven:DT.OVEN,junction:DT.JUNCTION,
+  bus:DT.BUS,breaker:DT.BREAKER,difbreaker:DT.DIFBREAKER,switch2p:DT.SWITCH2P,
+  voltctrl:DT.VOLTCTRL,ammeter:DT.AMMETER,voltmeter:DT.VOLTMETER};
+
+/* build section selector */
+(()=>{
+  const el=document.getElementById('sec-sel');
+  WIRE_SECTIONS.forEach((s,i)=>{
+    const d=document.createElement('div');
+    d.className='sec-opt'+(i===curSec?' active':'');d.id='sopt-'+i;
+    d.innerHTML=`<span>${s.label}</span><span>${s.maxA}А</span>`;
+    d.onclick=()=>{curSec=i;document.querySelectorAll('.sec-opt').forEach(x=>x.classList.remove('active'));d.classList.add('active')};
+    el.appendChild(d);
+  });
+})();
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+function initScene(){
+  graph.nodes.clear();graph.wires.clear();graph._adj.clear();graph._wadj.clear();
+  devices=[];srcs=[];hist.length=0;
+  drawing=null;selWire=null;selDev=null;drag=null;ghostTool=null;
+  src={maxA:63,volt:220,on:true};
+
+  // Source nodes at left edge of canvas — positions set after resize
+  const sx=60,sy=H/2;
+  const lNode=new CNode('src_L',sx,sy-70,NT.L,null,'L');
+  const nNode=new CNode('src_N',sx,sy+10, NT.N,null,'N');
+  const peNode=new CNode('src_PE',sx,sy+90,NT.PE,null,'PE');
+  [lNode,nNode,peNode].forEach(n=>{graph.addNode(n);srcs.push(n)});
+
+  // Build source terminal HTML
+  buildSrcTerminals();
+
+  const cx=Math.floor(W/2),cy=Math.floor(H/2);
+  const lamp=new CDevice('lamp1',DT.LAMP,cx+60,cy-30);
+  devices.push(lamp);lamp.nodes.forEach(n=>graph.addNode(n));
+
+  refreshUndoBtn();updateStatus('IDLE');setHint();
+}
+
+function buildSrcTerminals(){
+  const el=document.getElementById('src-terminals');
+  el.innerHTML='';
+  const colors={L:'#b04010',N:'#1040a0',PE:'#408000'};
+  const labels={L:'L — Фаза',N:'N — Ноль',PE:'PE — Земля'};
+  srcs.forEach(n=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:5px;margin-bottom:4px;font-family:Share Tech Mono,monospace;font-size:10px';
+    row.innerHTML=`<div style="width:10px;height:10px;border-radius:50%;background:${colors[n.type]};border:1.5px solid #0003;flex-shrink:0"></div>
+      <span style="color:var(--ink2)">${labels[n.type]}</span>`;
+    el.appendChild(row);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   SOURCE CONTROLS
+═══════════════════════════════════════════════ */
+function toggleSource(){
+  src.on=!src.on;
+  const knob=document.getElementById('src-knob');
+  const lbl=document.getElementById('src-knob-lbl');
+  knob.style.background=src.on?'#1a6a1a':'#c01818';
+  knob.textContent=src.on?'I':'0';
+  lbl.textContent=src.on?'ВКЛ':'ВЫКЛ';
+  runSim();
+}
+
+function openSourceModal(){
+  document.getElementById('modal-body').innerHTML=`
+  <h3>🔌 Источник питания</h3>
+  <div class="mrow"><label>Напряжение (В):</label>
+    <input class="minput" id="mi-sv" type="number" min="110" max="400" step="10" value="${src.volt}">
+  </div>
+  <div class="mrow"><label>Макс. ток (А):</label>
+    <input class="minput" id="mi-sa" type="number" min="0" max="1000" step="1" value="${src.maxA}">
+  </div>
+  <div class="minfo">0 = без ограничения по току.<br>
+    Макс. мощность: <b>${Math.round(src.maxA*src.volt/100)/10} кВт</b></div>
+  <div class="mbtn-row">
+    <button class="mbtn" onclick="saveSource()">✓ Сохранить</button>
+    <button class="mbtn cancel" onclick="closeModal()">Отмена</button>
+  </div>`;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function saveSource(){
+  src.volt=Math.max(110,Math.min(400,+document.getElementById('mi-sv').value||220));
+  src.maxA=Math.max(0,+document.getElementById('mi-sa').value||0);
+  closeModal();runSim();
+}
+
+/* ═══════════════════════════════════════════════
+   TOOL SELECTION
+═══════════════════════════════════════════════ */
+function selectTool(t){
+  if(drawMode&&!['pencil','eraser'].includes(t)) return;
+  tool=t;drawing=null;selWire=null;selDev=null;
+  if(delMode) toggleDelMode(false);
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+t)?.classList.add('active');
+  ghostTool=DEVICE_TOOLS.includes(t)?t:null;
+  setHint();render();
+}
+
+const HINTS={
+  'wire-l':'ЛКМ на клемму или узел → начать провод L | ПКМ = точка излома | ЛКМ на узел = завершить',
+  'wire-n':'ЛКМ на клемму или узел → начать провод N | ПКМ = точка излома | ЛКМ на узел = завершить',
+  'wire-pe':'ЛКМ на клемму или узел → начать провод PE | ПКМ = точка излома | ЛКМ на узел = завершить',
+  'lamp':'ЛКМ на холст → разместить лампу (2×ЛКМ = настройка мощности)',
+  'socket':'ЛКМ → розетка (требует L + N + PE)',
+  'oven':'ЛКМ → духовка (требует L + N + PE)',
+  'junction':'ЛКМ → скрутка — точка соединения проводов',
+  'bus':'ЛКМ → шина-клеммник (10 портов)',
+  'breaker':'ЛКМ → автоматический выключатель',
+  'difbreaker':'ЛКМ → дифференциальный автомат',
+  'switch2p':'ЛКМ → двухполюсный рубильник',
+  'voltctrl':'ЛКМ → регулятор напряжения',
+};
+function setHint(s){document.getElementById('hint').textContent=s||HINTS[tool]||''}
+
+/* ═══════════════════════════════════════════════
+   DRAW MODE
+═══════════════════════════════════════════════ */
+function toggleDrawMode(){
+  drawMode=!drawMode;
+  const btn=document.getElementById('btn-draw-mode');
+  const controls=document.getElementById('draw-controls');
+  if(btn) btn.classList.toggle('draw-active',drawMode);
+  if(btn) btn.textContent=drawMode?'✏ [РИС. ВКЛ]':'✏ Рисование';
+  if(controls) controls.classList.toggle('show',drawMode);
+  // In draw mode, main canvas ignores mouse (cvDraw on top captures it)
+  cvMain.style.pointerEvents=drawMode?'none':'auto';
+  cvDraw.style.pointerEvents=drawMode?'auto':'none';
+  if(drawMode) setDrawTool('pencil');
+  render();
+}
+
+function setDrawTool(t){
+  drawTool=t;
+  ['pencil','line','eraser'].forEach(n=>document.getElementById('btn-'+n)?.classList.toggle('active',n===t));
+}
+
+cvDraw.addEventListener('mousedown',e=>{
+  if(!drawMode)return;
+  const{x,y}=cpos2(e,cvDraw);
+  const sz=+document.getElementById('brush-size').value;
+  isDrawing=true;
+  if(drawTool==='line'){
+    _lineStart={x,y};
+    currentStroke={type:'line',pts:[{x,y},{x,y}],sz,color:'rgba(50,50,50,0.8)'};
+  } else if(drawTool==='pencil'){
+    currentStroke={type:'pencil',pts:[{x,y}],sz,color:'rgba(50,50,50,0.8)'};
+  }
+});
+
+cvDraw.addEventListener('mousemove',e=>{
+  if(!drawMode)return;
+  const{x,y}=cpos2(e,cvDraw);
+  const sz=+document.getElementById('brush-size').value;
+  _eraserPos=drawTool==='eraser'?{x,y,sz}:null;
+  if(isDrawing){
+    if(drawTool==='pencil'&&currentStroke){
+      currentStroke.pts.push({x,y});
+    } else if(drawTool==='line'&&currentStroke&&_lineStart){
+      currentStroke.pts=[{x:_lineStart.x,y:_lineStart.y},{x,y}];
+    } else if(drawTool==='eraser'){
+      // Erase strokes: remove points near cursor
+      const er=sz/zoom;
+      drawStrokes=drawStrokes.filter(s=>{
+        s.pts=s.pts.filter(p=>Math.hypot(p.x-x,p.y-y)>er);
+        return s.pts.length>1;
+      });
+    }
+  }
+  render();
+});
+
+document.addEventListener('mouseup',e=>{
+  if(!isDrawing)return;
+  if(drawMode&&currentStroke){
+    if(currentStroke.pts.length>1) drawStrokes.push({...currentStroke,pts:[...currentStroke.pts]});
+    currentStroke=null;_lineStart=null;
+  }
+  isDrawing=false;_eraserPos=null;render();
+});;
+
+/* ═══════════════════════════════════════════════
+   HIT TESTS
+═══════════════════════════════════════════════ */
+function nearNode(x,y,r=NODE_R+6){
+  let best=null,bd=Infinity;
+  for(const n of graph.nodes.values()){const d=n.dist(x,y);if(d<r&&d<bd){best=n;bd=d}}
+  return best;
+}
+function segDist(px,py,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+  if(!l2)return Math.hypot(px-a.x,py-a.y);
+  const t=Math.max(0,Math.min(1,((px-a.x)*dx+(py-a.y)*dy)/l2));
+  return Math.hypot(px-(a.x+t*dx),py-(a.y+t*dy));
+}
+function wireAt(x,y){
+  for(const[id,w]of graph.wires){
+    const pts=w.polyline(graph);
+    for(let i=0;i<pts.length-1;i++) if(segDist(x,y,pts[i],pts[i+1])<HIT_W) return id;
+  }
+  return null;
+}
+function devAt(x,y){for(const d of devices) if(d.hit(x,y)) return d.id;return null}
+function cpos2(e,el){
+  const r=el.getBoundingClientRect();
+  return{x:(e.clientX-r.left-panX)/zoom, y:(e.clientY-r.top-panY)/zoom};
+}
+
+/* ═══════════════════════════════════════════════
+   MOUSE EVENTS (main canvas)
+═══════════════════════════════════════════════ */
+cvMain.addEventListener('mousemove',onMove);
+cvMain.addEventListener('mousedown',onDown);
+cvMain.addEventListener('contextmenu',onRClick);
+document.addEventListener('mouseup',onUp);
+cvMain.addEventListener('dblclick',onDbl);
+
+function onMove(e){
+  const{x,y}=cpos2(e,cvMain);mp={x,y};
+  if(drawMode)return;
+  if(drag){
+    const dev=devices.find(d=>d.id===drag.id);
+    if(dev){
+      drag.didMove=true;
+      dev.moveTo(x-drag.offX,y-drag.offY);
+      runSim();
+    }
+    render();return;
+  }
+  hNode=nearNode(x,y);
+  hWire=hNode?null:wireAt(x,y);
+  hDev=(!hNode&&!hWire)?devAt(x,y):null;
+  cvMain.style.cursor=delMode?'crosshair':hNode?'crosshair':hDev||hWire?'grab':'crosshair';
+  if(ghostTool) cvMain.style.cursor='copy';
+  if(hNode&&!ghostTool){
+    const tip=document.getElementById('tip');
+    tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-24)+'px';
+    tip.textContent=`[${hNode.type}] ${hNode.label}`;
+  } else document.getElementById('tip').style.display='none';
+  render();
+}
+
+function onDown(e){
+  if(e.button!==0||drawMode)return;
+  hideCtx();closeModal();
+  const{x,y}=cpos2(e,cvMain);
+  if(delMode){
+    const stk=hitSticker(x,y);
+    if(stk){stickers=stickers.filter(s=>s.id!==stk.id);render();return}
+    const did=devAt(x,y),wid=did?null:wireAt(x,y);
+    if(did){selDev=did;ctxDelete()}else if(wid){selWire=wid;ctxDelete()}
+    return;
+  }
+  if(ghostTool){placeDev(x,y,DT_MAP[ghostTool]);return}
+  if(['wire-l','wire-n','wire-pe'].includes(tool)){
+    const wt=tool.split('-')[1].toUpperCase();
+    const node=nearNode(x,y);
+    if(!drawing){
+      if(node){drawing={fromNode:node,waypoints:[],type:wt,sectionIdx:curSec};selWire=null;selDev=null;setHint('Провод начат → ПКМ = точка излома | ЛКМ на узел = завершить')}
+    } else {
+      if(node&&node.id!==drawing.fromNode.id) commitWire(node);
+    }
+    render();return;
+  }
+  // select / drag — single mousedown starts drag immediately
+  const did=devAt(x,y);
+  if(did){
+    const dev=devices.find(d=>d.id===did);
+    selDev=did; selWire=null;
+    drag={id:did,offX:x-dev.x,offY:y-dev.y,origX:dev.x,origY:dev.y,didMove:false};
+    setHint('Тяни для перемещения | 2×ЛКМ = настройки | ПКМ = меню');
+    render();return;
+  }
+  const wid=wireAt(x,y);
+  if(wid){selWire=(selWire===wid)?null:wid;selDev=null;setHint(selWire?'Провод выбран → ПКМ = удалить':'');render();return}
+  selWire=null;selDev=null;drawing=null;setHint();render();
+}
+
+function onDbl(e){
+  if(drawMode)return;
+  const{x,y}=cpos2(e,cvMain);
+  const stk=hitSticker(x,y);
+  if(stk){openStickerEdit(stk.id,e.clientX,e.clientY);return}
+  const did=devAt(x,y);
+  if(did){selDev=did;ctxProps();return}
+}
+
+function onUp(){
+  if(drag){
+    const dev=devices.find(d=>d.id===drag.id);
+    if(dev&&drag.didMove){
+      hist.push({type:'move',data:{id:dev.id,fx:drag.origX,fy:drag.origY,tx:dev.x,ty:dev.y}});
+      refreshUndoBtn();
+    }
+    drag=null; runSim(); render();
+  }
+}
+
+function onRClick(e){
+  e.preventDefault();
+  if(drawMode)return;
+  const{x,y}=cpos2(e,cvMain);
+  if(drawing){drawing.waypoints.push({x,y});render();return}
+  const did=selDev||devAt(x,y),wid=selWire||wireAt(x,y);
+  if(did||wid){
+    if(did){selDev=did;selWire=null}else{selWire=wid;selDev=null}
+    const dev=did?devices.find(d=>d.id===did):null;
+    const canToggle=dev&&[DT.BREAKER,DT.DIFBREAKER,DT.SWITCH2P].includes(dev.type);
+    document.getElementById('cm-toggle').style.display=canToggle?'block':'none';
+    showCtx(e.clientX,e.clientY);render();return;
+  }
+  drawing=null;selWire=null;selDev=null;setHint();render();
+}
+
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();return}
+  if(e.key==='Escape'){
+    drawing=null;selWire=null;selDev=null;ghostTool=null;
+    if(delMode)toggleDelMode(false);
+    hideCtx();closeModal();setHint();
+    document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('btn-wire-l').classList.add('active');
+    tool='wire-l';render();
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   WIRE / DEVICE ACTIONS
+═══════════════════════════════════════════════ */
+function commitWire(toNode){
+  const{fromNode,waypoints,type,sectionIdx}=drawing;
+  const id='w'+(wCnt++);
+  const w=new CWire(id,fromNode.id,toNode.id,type,sectionIdx,[...waypoints]);
+  graph.addWire(w);
+  hist.push({type:'add_wire',data:{id}});
+  drawing=null;refreshUndoBtn();runSim();setHint();
+}
+
+function placeDev(x,y,type){
+  const id=type+'_'+Date.now();
+  const d=new CDevice(id,type,x,y);
+  devices.push(d);d.nodes.forEach(n=>graph.addNode(n));
+  hist.push({type:'add_dev',data:{id}});
+  refreshUndoBtn();runSim();render();
+}
+
+/* ═══════════════════════════════════════════════
+   DELETE MODE
+═══════════════════════════════════════════════ */
+function toggleDelMode(force){
+  delMode=typeof force==='boolean'?force:!delMode;
+  const btn=document.getElementById('btn-del');
+  btn.classList.toggle('active-mode',delMode);
+  btn.textContent=delMode?'🗑 [УДАЛЯЮ]':'🗑 Удалить';
+  if(delMode){drawing=null;ghostTool=null;setHint('Режим удаления: кликни на объект')}
+  else setHint();
+  render();
+}
+
+/* ═══════════════════════════════════════════════
+   CONTEXT MENU
+═══════════════════════════════════════════════ */
+function showCtx(cx,cy){const m=document.getElementById('cmenu');m.style.left=cx+'px';m.style.top=cy+'px';m.style.display='block'}
+function hideCtx(){document.getElementById('cmenu').style.display='none'}
+function ctxProps(){hideCtx();if(selDev){const d=devices.find(x=>x.id===selDev);if(d)openDevModal(d)}else if(selWire){const w=graph.wires.get(selWire);if(w)openWireModal(w)}}
+function ctxToggle(){
+  hideCtx();
+  if(!selDev)return;
+  const d=devices.find(x=>x.id===selDev);if(!d)return;
+  if(d.type===DT.BREAKER||d.type===DT.DIFBREAKER) d.tripped=!d.tripped;
+  else if(d.type===DT.SWITCH2P) d.closed=!d.closed;
+  runSim();render();
+}
+function ctxDelete(){
+  hideCtx();
+  if(selWire){removeWire(selWire);selWire=null}
+  else if(selDev){removeDev(selDev);selDev=null}
+}
+function removeWire(id){
+  const w=graph.wires.get(id);if(!w)return;
+  hist.push({type:'del_wire',data:{w:w.clone()}});
+  graph.removeWire(id);refreshUndoBtn();runSim();render();
+}
+function removeDev(id){
+  const dev=devices.find(d=>d.id===id);if(!dev)return;
+  const nids=new Set(dev.nodes.map(n=>n.id));
+  const killed=[...graph.wires.values()].filter(w=>nids.has(w.from)||nids.has(w.to));
+  killed.forEach(w=>graph.removeWire(w.id));
+  dev.nodes.forEach(n=>graph.nodes.delete(n.id));
+  devices=devices.filter(d=>d.id!==id);
+  hist.push({type:'del_dev',data:{dev:dev.clone(),wires:killed.map(w=>w.clone())}});
+  refreshUndoBtn();runSim();render();
+}
+
+/* ═══════════════════════════════════════════════
+   MODALS
+═══════════════════════════════════════════════ */
+function closeModal(){document.getElementById('modal-overlay').classList.remove('show')}
+document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal()});
+
+function openDevModal(dev){
+  const names={LAMP:'💡 Лампа',SOCKET:'🔌 Розетка',OVEN:'🔥 Духовка',BUS:'▬ Шина',
+    BREAKER:'⚡ Автомат',DIFBREAKER:'🛡 Диф. автомат',SWITCH2P:'🔀 Рубильник 2P',
+    VOLTCTRL:'⚙ Рег. напряжения',JUNCTION:'● Скрутка'};
+  const isConsumer=[DT.LAMP,DT.SOCKET,DT.OVEN].includes(dev.type);
+  const isBreaker=[DT.BREAKER,DT.DIFBREAKER].includes(dev.type);
+  let h=`<h3>${names[dev.type]||dev.type}</h3>`;
+  if(isConsumer){
+    const a=Math.round(dev.wattage/src.volt*100)/100;
+    h+=`<div class="mrow"><label>Мощность (Вт):</label>
+      <input class="minput" id="mi-w" type="number" min="1" max="50000" step="50" value="${dev.wattage}"></div>
+    <div class="minfo">Ток: <b>${a} А</b> при ${src.volt} В${dev.type!==DT.LAMP?'<br><b>⚠ Требует PE (заземление)</b>':''}</div>`;
+  }
+  if(isBreaker){
+    const opts=BREAKER_AMPS.map(a=>`<option value="${a}"${dev.ratedA===a?' selected':''}>${a} А</option>`).join('');
+    h+=`<div class="mrow"><label>Номинал:</label><select class="msel" id="mi-ba">${opts}</select></div>
+    <div class="mrow"><label>Состояние:</label>
+      <button class="mbtn ${dev.tripped?'warn-btn':''}" onclick="toggleDevInModal('${dev.id}')" id="mi-trp" style="margin:0;padding:5px 14px">
+        ${dev.tripped?'🔴 ВЫБИТ':'🟢 ВКЛ'}</button></div>
+    <div class="minfo">Автомат выбивает при превышении номинала.<br>Провод сгорает раньше, если его сечение слабее!</div>`;
+  }
+  if(dev.type===DT.SWITCH2P){
+    const opts=BREAKER_AMPS.map(a=>`<option value="${a}"${dev.ratedA===a?' selected':''}>${a} А</option>`).join('');
+    h+=`<div class="mrow"><label>Макс. ток (А):</label><select class="msel" id="mi-ba">${opts}</select></div>
+    <div class="mrow"><label>Положение:</label>
+      <button class="mbtn ${!dev.closed?'warn-btn':''}" onclick="toggleDevInModal('${dev.id}')" id="mi-trp" style="margin:0;padding:5px 14px">
+        ${dev.closed?'🟢 ЗАМКНУТ':'🔴 РАЗОМКНУТ'}</button></div>`;
+  }
+  if(dev.type===DT.VOLTCTRL){
+    h+=`<div class="mrow"><label>Выход (В):</label>
+      <input class="minput" id="mi-vout" type="number" min="100" max="250" step="5" value="${dev.outVolt}"></div>
+    <div class="minfo">Выходное напряжение регулятора.</div>`;
+  }
+  h+=`<div class="mbtn-row"><button class="mbtn" onclick="saveDev('${dev.id}')">✓ Сохранить</button>
+    <button class="mbtn cancel" onclick="closeModal()">Отмена</button></div>`;
+  document.getElementById('modal-body').innerHTML=h;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function toggleDevInModal(id){
+  const d=devices.find(x=>x.id===id);if(!d)return;
+  if(d.type===DT.BREAKER||d.type===DT.DIFBREAKER){
+    d.tripped=!d.tripped;
+    const b=document.getElementById('mi-trp');
+    b.textContent=d.tripped?'🔴 ВЫБИТ':'🟢 ВКЛ';
+    b.className='mbtn'+(d.tripped?' warn-btn':'');
+  } else if(d.type===DT.SWITCH2P){
+    d.closed=!d.closed;
+    const b=document.getElementById('mi-trp');
+    b.textContent=d.closed?'🟢 ЗАМКНУТ':'🔴 РАЗОМКНУТ';
+    b.className='mbtn'+(!d.closed?' warn-btn':'');
+  }
+  runSim();
+}
+
+function saveDev(id){
+  const d=devices.find(x=>x.id===id);if(!d)return;
+  const w=document.getElementById('mi-w');if(w)d.wattage=Math.max(1,Math.min(50000,+w.value||100));
+  const ba=document.getElementById('mi-ba');if(ba)d.ratedA=+ba.value;
+  const vo=document.getElementById('mi-vout');if(vo)d.outVolt=Math.max(100,Math.min(250,+vo.value||220));
+  closeModal();runSim();
+}
+
+function openWireModal(w){
+  const opts=WIRE_SECTIONS.map((s,i)=>`<option value="${i}"${w.sectionIdx===i?' selected':''}>${s.label} — ${s.maxA}А</option>`).join('');
+  const ratio=w.currentA/w.maxA;
+  const cls=ratio>1?'hi':ratio>0.85?'hi':'ok';
+  document.getElementById('modal-body').innerHTML=`<h3>〰 Провод</h3>
+  <div class="mrow"><label>Сечение:</label><select class="msel" id="mi-sec">${opts}</select></div>
+  <div class="minfo">Ток: <span class="${cls}">${Math.round(w.currentA*100)/100} А</span> из ${w.maxA} А<br>
+    ${w.burnt?'<span class="hi">⚠ ПРОВОД СГОРЕЛ</span>':ratio>0.85?'<span class="hi">⚠ Перегрев! Увеличь сечение</span>':'<span class="ok">✓ В норме</span>'}
+  </div>
+  <div class="mbtn-row">
+    <button class="mbtn" onclick="saveWire('${w.id}')">✓ Применить</button>
+    ${w.burnt?`<button class="mbtn warn-btn" onclick="repairWire('${w.id}')">🔧 Починить</button>`:''}
+    <button class="mbtn cancel" onclick="closeModal()">Отмена</button>
+  </div>`;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function saveWire(id){const w=graph.wires.get(id);if(!w)return;const s=document.getElementById('mi-sec');if(s)w.sectionIdx=+s.value;closeModal();runSim()}
+function repairWire(id){const w=graph.wires.get(id);if(!w)return;w.burnt=false;w.currentA=0;closeModal();runSim()}
+
+/* ═══════════════════════════════════════════════
+   SAVE / LOAD
+═══════════════════════════════════════════════ */
+function saveProject(){
+  const data={
+    src,wCnt,
+    devices:devices.map(d=>({id:d.id,type:d.type,x:d.x,y:d.y,wattage:d.wattage,ratedA:d.ratedA,tripped:d.tripped,closed:d.closed,outVolt:d.outVolt})),
+    wires:[...graph.wires.values()].map(w=>({id:w.id,from:w.from,to:w.to,type:w.type,sectionIdx:w.sectionIdx,pts:w.pts,burnt:w.burnt})),
+    drawing:cvDraw.toDataURL(),
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='project.ekv';a.click();
+}
+
+function loadProject(){document.getElementById('file-input').click()}
+function loadProjectFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      restoreProject(data);
+    }catch(err){alert('Ошибка загрузки файла: '+err.message)}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+function restoreProject(data){
+  graph.nodes.clear();graph.wires.clear();graph._adj.clear();graph._wadj.clear();
+  devices=[];srcs=[];hist.length=0;drawing=null;selWire=null;selDev=null;
+  src=data.src||{maxA:63,volt:220,on:true};
+  wCnt=data.wCnt||0;
+  // Recreate source nodes
+  const sx=60,sy=H/2;
+  const lNode=new CNode('src_L',sx,sy-70,NT.L,null,'L');
+  const nNode=new CNode('src_N',sx,sy+10, NT.N,null,'N');
+  const peNode=new CNode('src_PE',sx,sy+90,NT.PE,null,'PE');
+  [lNode,nNode,peNode].forEach(n=>{graph.addNode(n);srcs.push(n)});
+  buildSrcTerminals();
+  // Devices
+  for(const dd of(data.devices||[])){
+    const d=new CDevice(dd.id,dd.type,dd.x,dd.y);
+    d.wattage=dd.wattage;d.ratedA=dd.ratedA;d.tripped=dd.tripped;d.closed=dd.closed;d.outVolt=dd.outVolt;
+    devices.push(d);d.nodes.forEach(n=>graph.addNode(n));
+  }
+  // Wires
+  for(const wd of(data.wires||[])){
+    const w=new CWire(wd.id,wd.from,wd.to,wd.type,wd.sectionIdx,wd.pts||[]);
+    w.burnt=wd.burnt||false;
+    if(graph.nodes.has(w.from)&&graph.nodes.has(w.to)) graph.addWire(w);
+  }
+  // Drawing layer
+  if(data.drawing){
+    const img=new Image();img.onload=()=>{ctxD.clearRect(0,0,W,H);ctxD.drawImage(img,0,0)};img.src=data.drawing;
+  }
+  refreshUndoBtn();runSim();render();
+}
+
+/* ═══════════════════════════════════════════════
+   UNDO
+═══════════════════════════════════════════════ */
+function undo(){
+  if(!hist.length)return;
+  const e=hist.pop();
+  if(e.type==='add_wire') graph.removeWire(e.data.id);
+  else if(e.type==='del_wire'){const w=e.data.w;if(graph.nodes.has(w.from)&&graph.nodes.has(w.to)) graph.addWire(w.clone())}
+  else if(e.type==='add_dev'){const d=devices.find(x=>x.id===e.data.id);if(d){d.nodes.forEach(n=>graph.nodes.delete(n.id));devices=devices.filter(x=>x.id!==e.data.id)}}
+  else if(e.type==='del_dev'){
+    const dev=e.data.dev;
+    const rd=new CDevice(dev.id,dev.type,dev.x,dev.y);
+    rd.nodes=dev.nodes.map(n=>new CNode(n.id,n.x,n.y,n.type,n.devId,n.label));
+    rd.wattage=dev.wattage;rd.ratedA=dev.ratedA;rd.tripped=dev.tripped;rd.closed=dev.closed;rd.outVolt=dev.outVolt;
+    devices.push(rd);rd.nodes.forEach(n=>graph.addNode(n));
+    e.data.wires.forEach(w=>{if(graph.nodes.has(w.from)&&graph.nodes.has(w.to)) graph.addWire(w.clone())});
+  }
+  else if(e.type==='move'){const d=devices.find(x=>x.id===e.data.id);if(d)d.moveTo(e.data.fx,e.data.fy)}
+  selWire=null;selDev=null;drawing=null;refreshUndoBtn();runSim();render();
+}
+function refreshUndoBtn(){document.getElementById('btn-undo').disabled=!hist.length}
+
+function clearWires(){
+  [...graph.wires.keys()].forEach(id=>graph.removeWire(id));
+  devices.forEach(d=>{d.state='IDLE';if(d.type===DT.BREAKER||d.type===DT.DIFBREAKER)d.tripped=false});
+  drawing=null;selWire=null;hist.length=0;refreshUndoBtn();runSim();render();
+}
+function resetAll(){
+  wCnt=0;hist.length=0;
+  stickers=[];
+  drawStrokes=[];currentStroke=null;
+  ctxD.clearRect(0,0,W,H);
+  initScene();render();
+}
+
+/* ═══════════════════════════════════════════════
+   STATUS HELPERS
+═══════════════════════════════════════════════ */
+function setPM(id,txt,cls){const el=document.getElementById(id);if(el){el.textContent=txt;el.className='pval'+(cls?' '+cls:'')}}
+function fmtW(v){return v>=1000?Math.round(v/100)/10+' кВт':Math.round(v)+' Вт'}
+function fmtA(v){return Math.round(v*100)/100+' А'}
+function updateStatus(s){
+  const el=document.getElementById('cstatus');
+  el.textContent={IDLE:'— IDLE —',WORKING:'✓ РАБОТАЕТ',NO_POWER:'✗ НЕТ ПИТАНИЯ',
+    OPEN_CIRCUIT:'⚡ ОБРЫВ',LEAKAGE:'⚠ УТЕЧКА',OVERLOAD:'⚡ ПЕРЕГРУЗКА',TRIPPED:'🔴 ВЫБИТ'}[s]||s;
+  el.className=s;
+}
+
+/* ═══════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════ */
+function render(){
+  devices.forEach(d=>d.selected=d.id===selDev);
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(panX,panY);
+  ctx.scale(zoom,zoom);
+
+  // Watermark
+  ctx.save();ctx.globalAlpha=0.04;ctx.fillStyle='#1a3a6a';
+  ctx.font='bold 100px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText('ЭлектроКВ',W/(2*zoom),H/(2*zoom)+30);ctx.restore();
+
+  if(drawMode){
+    ctx.save();ctx.globalAlpha=0.25;ctx.filter='grayscale(1)';
+    drawWires();drawDevices();drawNodes();
+    ctx.restore();
+    // Draw layer rendered on top in world space
+    drawDrawingLayer();
+  } else {
+    drawDrawingLayer();
+    drawWires();drawDevices();drawNodes();
+    if(ghostTool) drawGhost();
+  }
+  drawSourceNodes();
+  drawStickers();
+
+  ctx.restore(); // end zoom/pan
+
+  // Eraser cursor (screen space, outside transform)
+  if(_eraserPos){
+    const sx=(_eraserPos.x)*zoom+panX, sy=(_eraserPos.y)*zoom+panY;
+    const ss=_eraserPos.sz*zoom;
+    ctx.save();ctx.strokeStyle='rgba(60,60,60,0.7)';ctx.lineWidth=1.5;ctx.setLineDash([3,2]);
+    ctx.strokeRect(sx-ss,sy-ss,ss*2,ss*2);ctx.setLineDash([]);ctx.restore();
+  }
+}
+
+/* ── WIRES ── */
+function drawWires(){
+  for(const w of graph.wires.values()){
+    const pts=w.polyline(graph);if(pts.length<2)continue;
+    const sel=w.id===selWire,hov=w.id===hWire;
+    const ratio=w.currentA/w.maxA;
+    let col=WCOLOR[w.type];
+    if(w.burnt) col='#999';
+    else if(w.type!=='PE'){
+      if(ratio>1) col='#cc0000';
+      else if(ratio>0.85) col='#b05000';
+      else if(ratio>0.5)  col='#8a5000';
+    }
+    const thick=Math.max(1.5,1.5+Math.min(ratio,1)*2.5);
+    ctx.save();
+    if(w.burnt){ctx.setLineDash([5,5]);ctx.globalAlpha=0.5}
+    if(sel){
+      ctx.strokeStyle='rgba(26,58,106,0.22)';ctx.lineWidth=thick+10;ctx.lineCap='round';ctx.lineJoin='round';
+      ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();
+    }
+    ctx.strokeStyle=col;ctx.lineWidth=sel?thick+2:hov?thick+1.5:thick;
+    ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(w.burnt?[5,5]:[]);
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();
+    // Hot pulse
+    if(!w.burnt&&ratio>0.85){
+      const pulse=0.35+0.3*Math.sin(Date.now()/180);
+      ctx.strokeStyle=ratio>1?`rgba(200,0,0,${pulse})`:`rgba(180,70,0,${pulse})`;
+      ctx.lineWidth=thick+5;ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for(let i=1;i<pts.length-1;i++){
+      ctx.fillStyle=col;ctx.strokeStyle=PAPER;ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(pts[i].x,pts[i].y,3,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+    if((sel||hov)&&pts.length>=2){
+      const mx=(pts[0].x+pts[pts.length-1].x)/2,my=(pts[0].y+pts[pts.length-1].y)/2-14;
+      const txt=w.burnt?'СГОРЕЛ!':w.section.label+' · '+Math.round(w.currentA*100)/100+'А/'+w.maxA+'А';
+      ctx.font='bold 11px "Share Tech Mono"';
+      const tw=ctx.measureText(txt).width;
+      ctx.fillStyle='rgba(244,240,230,0.92)';ctx.strokeStyle=INK3;ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.roundRect?ctx.roundRect(mx-tw/2-5,my-12,tw+10,16,3):ctx.rect(mx-tw/2-5,my-12,tw+10,16);
+      ctx.fill();ctx.stroke();
+      ctx.fillStyle=w.burnt?'#c00':col;ctx.textAlign='center';ctx.fillText(txt,mx,my);
+    }
+    ctx.restore();
+  }
+  if([...graph.wires.values()].some(w=>!w.burnt&&w.currentA/w.maxA>0.85)) requestAnimationFrame(render);
+}
+
+/* ── PREVIEW ── */
+function drawPreview(){} // integrated in render via drawing check
+
+/* re-draw preview inline */
+function drawNodes(){
+  // Preview wire
+  if(drawing){
+    const col=WCOLOR[drawing.type];
+    const fn=drawing.fromNode;
+    const pts=[{x:fn.x,y:fn.y},...drawing.waypoints,{x:mp.x,y:mp.y}];
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.setLineDash([7,5]);ctx.globalAlpha=0.65;
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();
+    ctx.setLineDash([]);ctx.globalAlpha=0.9;
+    for(let i=1;i<pts.length-1;i++){
+      const p=pts[i];ctx.fillStyle=col;
+      ctx.beginPath();ctx.moveTo(p.x,p.y-6);ctx.lineTo(p.x+6,p.y);ctx.lineTo(p.x,p.y+6);ctx.lineTo(p.x-6,p.y);
+      ctx.closePath();ctx.fill();
+    }
+    const snap=nearNode(mp.x,mp.y);
+    if(snap&&snap.id!==drawing.fromNode.id){
+      ctx.globalAlpha=1;ctx.strokeStyle='#1a3a6a';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(snap.x,snap.y,NODE_R+7,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Device nodes
+  for(const n of graph.nodes.values()){
+    if(n.type===NT.L||n.type===NT.N||n.type===NT.PE)continue;
+    const ih=hNode?.id===n.id,is=drawing?.fromNode.id===n.id;
+    const col=is?'#1a3a6a':ih?INK2:INK3;
+    ctx.save();
+    ctx.fillStyle=col;ctx.strokeStyle=PAPER;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(n.x,n.y,is||ih?NODE_R:5.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    if(ih||is){
+      ctx.strokeStyle='#1a3a6a';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(n.x,n.y,NODE_R+6,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=INK;ctx.font='bold 11px "Share Tech Mono"';ctx.textAlign='center';
+      ctx.fillText(n.label,n.x,n.y-14);
+    }
+    ctx.restore();
+  }
+}
+
+/* ── SOURCE NODES (on canvas) ── */
+function drawSourceNodes(){
+  srcs.forEach(n=>{
+    const colMap={L:'#b04010',N:'#1040a0',PE:'#408000'};
+    const col=colMap[n.type];
+    const ih=hNode?.id===n.id,is=drawing?.fromNode.id===n.id;
+    ctx.save();
+    // Terminal block
+    ctx.fillStyle=PAPER2;ctx.strokeStyle=INK2;ctx.lineWidth=1.5;
+    fillRR(n.x-2,n.y-8,52,16,3);ctx.fill();ctx.stroke();
+    ctx.fillStyle=col;fillRR(n.x-2,n.y-8,8,16,2);ctx.fill();
+    // Connection dot
+    ctx.fillStyle=col;ctx.strokeStyle=INK;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(n.x+38,n.y,ih||is?8:6,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=PAPER;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(n.x+38,n.y-3);ctx.lineTo(n.x+38,n.y+3);
+    ctx.moveTo(n.x+35,n.y);ctx.lineTo(n.x+41,n.y);ctx.stroke();
+    if(ih||is){ctx.strokeStyle='#1a3a6a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(n.x+38,n.y,13,0,Math.PI*2);ctx.stroke()}
+    ctx.fillStyle=INK;ctx.font='bold 11px "Rajdhani"';ctx.textAlign='left';
+    ctx.fillText(n.label,n.x+8,n.y+4);
+    ctx.restore();
+  });
+}
+
+/* ── GHOST ── */
+function drawGhost(){
+  if(!ghostTool)return;
+  ctx.save();ctx.globalAlpha=0.32;
+  const tmp=new CDevice('_ghost',DT_MAP[ghostTool],mp.x,mp.y);
+  tmp.state='IDLE';tmp.selected=false;
+  drawOneDevice(tmp);
+  ctx.restore();
+}
+
+/* ── DEVICES ── */
+function drawDevices(){devices.forEach(d=>drawOneDevice(d))}
+
+function drawOneDevice(d){
+  const isDrag=drag?.id===d.id;
+  if(isDrag){ctx.save();ctx.globalAlpha=0.22}
+  if(d.type===DT.LAMP)       drawLamp(d,isDrag);
+  else if(d.type===DT.SOCKET) drawSocket(d,isDrag);
+  else if(d.type===DT.OVEN)   drawOven(d,isDrag);
+  else if(d.type===DT.BUS)    drawBus(d,isDrag);
+  else if(d.type===DT.BREAKER||d.type===DT.DIFBREAKER) drawBreaker(d,isDrag);
+  else if(d.type===DT.SWITCH2P) drawSwitch2P(d,isDrag);
+  else if(d.type===DT.VOLTCTRL) drawVoltCtrl(d,isDrag);
+  else if(d.type===DT.VOLTMETER) drawMeter(d,isDrag,'V');
+  else if(d.type===DT.AMMETER)  drawMeter(d,isDrag,'A');
+  if(isDrag) ctx.restore();
+}
+
+function selRing(x,y,w,h,r=5){
+  ctx.save();ctx.strokeStyle='#1a3a6a';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.globalAlpha=0.65;
+  fillRR(x,y,w,h,r);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+}
+function shadow(x,y,w,h,r){ctx.save();ctx.fillStyle='rgba(0,0,0,0.09)';fillRR(x+3,y+3,w,h,r);ctx.fill();ctx.restore()}
+
+/* ── LAMP ── */
+function drawLamp(d,isDrag){
+  const{x,y,state,selected,wattage}=d,h=hDev===d.id;
+  const working=state==='WORKING';
+  if(!isDrag) shadow(x-48,y-44,96,88,8);
+  ctx.save();
+  ctx.fillStyle=PAPER;ctx.strokeStyle=working?'#8a6a00':INK2;ctx.lineWidth=2;
+  fillRR(x-48,y-44,96,88,8);ctx.fill();ctx.stroke();
+  // header
+  ctx.fillStyle=working?'#f8f0d0':PAPER2;fillRR(x-48,y-44,96,19,4);ctx.fill();
+  ctx.fillStyle=INK;ctx.font='bold 12px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('ЛАМПА',x,y-30);
+  // bulb
+  const by=y-7,br=19;
+  ctx.beginPath();ctx.arc(x,by,br,0,Math.PI*2);
+  if(working){
+    const g=ctx.createRadialGradient(x-3,by-5,1,x,by,br);
+    g.addColorStop(0,'#fff9e0');g.addColorStop(0.5,'#ffd740');g.addColorStop(1,'#ff8800');
+    ctx.fillStyle=g;
+  } else ctx.fillStyle='#d8d0bc';
+  ctx.fill();ctx.strokeStyle=working?'#c8a000':'#8a8070';ctx.lineWidth=1.5;ctx.stroke();
+  // filament
+  ctx.strokeStyle=working?'#fff0a0':'#a08860';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(x-6,by+5);ctx.lineTo(x-2,by-2);ctx.lineTo(x+2,by+4);ctx.lineTo(x+6,by-3);ctx.lineTo(x+8,by+4);ctx.stroke();
+  // base
+  ctx.fillStyle='#c0b090';ctx.strokeStyle='#8a7050';ctx.lineWidth=1;
+  ctx.fillRect(x-10,by+br-1,20,14);ctx.strokeRect(x-10,by+br-1,20,14);
+  for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(x-10,by+br-1+i*3.5);ctx.lineTo(x+10,by+br-1+i*3.5);ctx.stroke()}
+  // watts
+  ctx.fillStyle=working?'#8a6a00':state==='NO_POWER'?INK3:'#c01818';
+  ctx.font='bold 11px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(`${wattage}Вт · ${Math.round(wattage/src.volt*10)/10}А`,x,y+40);
+  if(working){
+    const g2=ctx.createRadialGradient(x,by,br,x,by,55);
+    g2.addColorStop(0,'rgba(255,220,80,0.16)');g2.addColorStop(1,'rgba(255,200,0,0)');
+    ctx.fillStyle=g2;ctx.beginPath();ctx.arc(x,by,55,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+  if(selected||h) selRing(x-50,y-46,100,92,8);
+}
+
+/* ── SOCKET ── */
+function drawSocket(d,isDrag){
+  const{x,y,state,selected,wattage}=d,h=hDev===d.id;
+  const working=state==='WORKING',noPE=state==='NO_POWER';
+  if(!isDrag) shadow(x-46,y-46,92,90,8);
+  ctx.save();
+  ctx.fillStyle=PAPER;ctx.strokeStyle=working?'#1a5a1a':noPE?'#c01818':INK2;ctx.lineWidth=2;
+  fillRR(x-46,y-46,92,90,8);ctx.fill();ctx.stroke();
+  ctx.fillStyle=PAPER2;fillRR(x-46,y-46,92,19,4);ctx.fill();
+  ctx.fillStyle=INK;ctx.font='bold 12px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('РОЗЕТКА',x,y-32);
+  // Face circle
+  ctx.strokeStyle=working?'#1a5a1a':INK3;ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.arc(x,y+8,22,0,Math.PI*2);ctx.stroke();
+  // Holes
+  ctx.fillStyle=working?'#1a5a1a':INK3;
+  ctx.beginPath();ctx.ellipse(x-8,y+8,3,5,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(x+8,y+8,3,5,0,0,Math.PI*2);ctx.fill();
+  // Ground slot bottom
+  ctx.beginPath();ctx.arc(x,y+19,3,0,Math.PI*2);ctx.fill();
+  // Status
+  ctx.font='bold 11px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillStyle=working?'#1a6a1a':noPE?'#c01818':INK3;
+  ctx.fillText(noPE?'⚠ нет PE!':`${wattage}Вт · PE✓`,x,y+40);
+  ctx.restore();
+  if(selected||h) selRing(x-48,y-48,96,94,8);
+}
+
+/* ── OVEN ── */
+function drawOven(d,isDrag){
+  const{x,y,state,selected,wattage}=d,h=hDev===d.id;
+  const working=state==='WORKING';
+  if(!isDrag) shadow(x-56,y-44,112,88,8);
+  ctx.save();
+  ctx.fillStyle=PAPER;ctx.strokeStyle=working?'#a02010':INK2;ctx.lineWidth=2;
+  fillRR(x-56,y-44,112,88,8);ctx.fill();ctx.stroke();
+  ctx.fillStyle=PAPER2;fillRR(x-56,y-44,112,19,4);ctx.fill();
+  ctx.fillStyle=INK;ctx.font='bold 12px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('ДУХОВКА',x,y-30);
+  // door
+  ctx.fillStyle=working?'rgba(200,80,20,0.1)':'#d8d0bc';ctx.strokeStyle=INK2;ctx.lineWidth=1.5;
+  fillRR(x-38,y-18,76,46,4);ctx.fill();ctx.stroke();
+  ctx.strokeStyle=working?'#d05020':'#9a8060';ctx.lineWidth=3;
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(x-30,y-8+i*15);ctx.lineTo(x+30,y-8+i*15);ctx.stroke()}
+  ctx.font='bold 11px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillStyle=working?'#a02010':INK3;ctx.fillText(`${wattage}Вт · PE✓`,x,y+40);
+  ctx.restore();
+  if(selected||h) selRing(x-58,y-46,116,92,8);
+}
+
+/* ── BUS ── */
+function drawBus(d,isDrag){
+  const{x,y,state,selected}=d,h=hDev===d.id;
+  const active=state==='WORKING';
+  if(!isDrag) shadow(x-96,y-42,192,78,6);
+  ctx.save();
+  ctx.fillStyle=PAPER;ctx.strokeStyle=INK2;ctx.lineWidth=2;
+  fillRR(x-96,y-42,192,78,6);ctx.fill();ctx.stroke();
+  ctx.fillStyle=active?'#d8eed8':'#d0c8b8';ctx.strokeStyle=active?'#1a6a1a':INK3;ctx.lineWidth=2.5;
+  ctx.fillRect(x-86,y-8,172,14);ctx.strokeRect(x-86,y-8,172,14);
+  // main IN
+  const mn=d.nodes[0];
+  const im=hNode?.id===mn.id,sm=drawing?.fromNode.id===mn.id;
+  ctx.fillStyle=active?'#1a6a1a':INK3;ctx.strokeStyle=PAPER;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(mn.x,mn.y,im||sm?10:7.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=PAPER;ctx.font='bold 9px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('IN',mn.x,mn.y+3);
+  // ports
+  for(let i=1;i<d.nodes.length;i++){
+    const n=d.nodes[i],ih2=hNode?.id===n.id,is2=drawing?.fromNode.id===n.id;
+    ctx.fillStyle=active?'#1a6a1a':INK3;ctx.strokeStyle=PAPER;ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(n.x,n.y,ih2||is2?8:5.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle=INK3;ctx.font='8px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('P'+i,n.x,n.y+18);
+  }
+  ctx.fillStyle=INK2;ctx.font='bold 11px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('КЛЕММНИК / ШИНА (10 портов)',x,y-28);
+  ctx.restore();
+  if(selected||h) selRing(x-98,y-44,196,82,6);
+}
+
+/* ── BREAKER ── */
+function drawBreaker(d,isDrag){
+  const{x,y,state,selected,type,ratedA,tripped}=d,h=hDev===d.id;
+  const powered=state==='WORKING',isDif=type===DT.DIFBREAKER;
+  const bw=isDif?58:50,bh=104;
+  if(!isDrag) shadow(x-bw/2,y-bh/2,bw,bh,5);
+  ctx.save();
+  // Body
+  ctx.fillStyle=tripped?'#f8e8e8':PAPER;
+  ctx.strokeStyle=tripped?'#c01818':powered?'#1a5a1a':INK2;ctx.lineWidth=2.5;
+  fillRR(x-bw/2,y-bh/2,bw,bh,5);ctx.fill();ctx.stroke();
+  // Top color band
+  ctx.fillStyle=isDif?'#1a3a8a':'#2a5a2a';
+  fillRR(x-bw/2,y-bh/2,bw,16,3);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 8px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(isDif?'ДИФ-АВТ':'АВТОМАТ',x,y-bh/2+11);
+
+  // Lever track
+  ctx.fillStyle='#c8c0b0';ctx.strokeStyle=INK3;ctx.lineWidth=1;
+  fillRR(x-9,y-28,18,48,4);ctx.fill();ctx.stroke();
+  // Lever knob — large, realistic
+  const lky=tripped?y+12:y-12;
+  const lkc=tripped?'#c01818':'#2a8a2a';
+  ctx.fillStyle=lkc;ctx.strokeStyle=tripped?'#800000':'#1a5a1a';ctx.lineWidth=2;
+  fillRR(x-11,lky-9,22,18,5);ctx.fill();ctx.stroke();
+  // I/0 label on lever
+  ctx.fillStyle='#fff';ctx.font='bold 14px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(tripped?'0':'I',x,lky+5);
+
+  // Rating badge
+  ctx.fillStyle=tripped?PAPER2:'#e8f4e8';
+  ctx.strokeStyle=tripped?'#c01818':'#1a5a1a';ctx.lineWidth=1;
+  fillRR(x-bw/2+4,y+bh/2-22,bw-8,18,3);ctx.fill();ctx.stroke();
+  ctx.fillStyle=tripped?'#c01818':INK;ctx.font='bold 14px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(ratedA+'А',x,y+bh/2-9);
+
+  // Status LED
+  ctx.fillStyle=tripped?'#e00':'#0c0';
+  ctx.beginPath();ctx.arc(x+bw/2-8,y-bh/2+7,4,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=0.5;ctx.stroke();
+
+  // DIF test button
+  if(isDif){
+    ctx.fillStyle='#1a3a8a';ctx.strokeStyle=INK2;ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(x,y+bh/2-34,7,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 8px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('T',x,y+bh/2-31);
+  }
+
+  // Current flow lines
+  if(powered&&!tripped){
+    ctx.strokeStyle='rgba(26,90,26,0.25)';ctx.lineWidth=1.5;ctx.setLineDash([2,3]);
+    ctx.beginPath();ctx.moveTo(x,y-bh/2+16);ctx.lineTo(x,y-28);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x,y+20);ctx.lineTo(x,y+bh/2-22);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+  if(selected||h) selRing(x-bw/2-3,y-bh/2-3,bw+6,bh+6,6);
+}
+
+/* ── SWITCH 2P ── */
+function drawSwitch2P(d,isDrag){
+  const{x,y,state,selected,closed,ratedA}=d,h=hDev===d.id;
+  if(!isDrag) shadow(x-36,y-42,72,84,5);
+  ctx.save();
+  ctx.fillStyle=PAPER;ctx.strokeStyle=closed?'#1a5a1a':INK2;ctx.lineWidth=2;
+  fillRR(x-36,y-42,72,84,5);ctx.fill();ctx.stroke();
+  ctx.fillStyle=closed?'#d8eed8':PAPER2;fillRR(x-36,y-42,72,16,3);ctx.fill();
+  ctx.fillStyle=INK;ctx.font='bold 10px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('РУБИЛЬНИК 2P',x,y-31);
+
+  // Two switch blades
+  for(let i=0;i<2;i++){
+    const sx=x-14+i*28;
+    ctx.strokeStyle=INK3;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(sx,y-22);ctx.lineTo(sx,y+22);ctx.stroke();
+    ctx.fillStyle=INK2;ctx.beginPath();ctx.arc(sx,y-22,4,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(sx,y+22,4,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=closed?'#1a6a1a':'#c01818';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(sx,y-22);
+    if(closed) ctx.lineTo(sx,y+22);
+    else ctx.lineTo(sx+18,y+10);
+    ctx.stroke();
+  }
+
+  // Rating
+  ctx.fillStyle=INK3;ctx.font='10px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(ratedA+'А',x,y+36);
+  ctx.fillStyle=closed?'#1a6a1a':'#c01818';ctx.font='bold 10px "Share Tech Mono"';
+  ctx.fillText(closed?'ЗАМКНУТ':'РАЗОМКНУТ',x,y+46);
+  ctx.restore();
+  if(selected||h) selRing(x-38,y-44,76,88,5);
+}
+
+/* ── VOLT CTRL ── */
+function drawVoltCtrl(d,isDrag){
+  const{x,y,state,selected,outVolt}=d,h=hDev===d.id;
+  const active=state==='WORKING';
+  if(!isDrag) shadow(x-52,y-28,104,56,6);
+  ctx.save();
+  ctx.fillStyle=PAPER;ctx.strokeStyle=active?'#1a3a6a':INK2;ctx.lineWidth=2;
+  fillRR(x-52,y-28,104,56,6);ctx.fill();ctx.stroke();
+  ctx.fillStyle=PAPER2;fillRR(x-52,y-28,104,15,4);ctx.fill();
+  ctx.fillStyle=INK;ctx.font='bold 10px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('РЕГ. НАПРЯЖЕНИЯ',x,y-18);
+  // Knob
+  ctx.fillStyle='#c0b090';ctx.strokeStyle=INK2;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(x-20,y+10,14,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.strokeStyle=active?'#1a3a6a':INK3;ctx.lineWidth=2.5;
+  const ang=-0.85+(outVolt-110)/(250-110)*1.7;
+  ctx.beginPath();ctx.moveTo(x-20,y+10);
+  ctx.lineTo(x-20+Math.cos(ang*Math.PI)*11,y+10+Math.sin(ang*Math.PI)*11);ctx.stroke();
+  // Display
+  ctx.fillStyle=PAPER2;ctx.strokeStyle=INK3;ctx.lineWidth=1;fillRR(x+2,y,46,24,3);ctx.fill();ctx.stroke();
+  ctx.fillStyle=active?'#1a3a6a':INK3;ctx.font='bold 14px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(outVolt+'В',x+25,y+16);
+  ctx.restore();
+  if(selected||h) selRing(x-54,y-30,108,60,6);
+}
+
+/* ── JUNCTION (скрутка) ── */
+function drawJunction(d,isDrag){
+  const{x,y,state,selected}=d,h=hDev===d.id;
+  const active=state==='WORKING';
+  ctx.save();
+  // Outer ring
+  ctx.fillStyle=active?'#d8eed8':PAPER2;
+  ctx.strokeStyle=active?'#1a6a1a':INK3;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(x,y,11,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Center dot
+  ctx.fillStyle=active?'#1a6a1a':INK3;
+  ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+  // Label
+  ctx.fillStyle=INK3;ctx.font='bold 9px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText('СКР',x,y+20);
+  ctx.restore();
+  if(selected||h){
+    ctx.save();ctx.strokeStyle='#1a3a6a';ctx.lineWidth=1.5;ctx.setLineDash([3,2]);
+    ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
+}
+
+/* ── METER (амперметр / вольтметр) ── */
+function drawMeter(d,isDrag,kind){
+  const{x,y,state,selected}=d;
+  const isA=kind==='A';
+  const h2=hDev===d.id;
+  const active=state==='WORKING';
+  const val=isA?d.measuredA:d.measuredV;
+  const unit=isA?'А':'В';
+  const col=isA?'#8a1a1a':'#1a2a8a';
+  const colL=isA?'#c83030':'#3060cc';
+
+  if(!isDrag) shadow(x-42,y-28,84,56,6);
+  ctx.save();
+
+  // Корпус
+  ctx.fillStyle=PAPER;ctx.strokeStyle=active?col:INK2;ctx.lineWidth=2;
+  fillRR(x-42,y-28,84,56,6);ctx.fill();ctx.stroke();
+
+  // Цветная полоска-шапка
+  ctx.fillStyle=active?col:'#8a8070';
+  fillRR(x-42,y-28,84,16,4);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 10px "Share Tech Mono"';ctx.textAlign='center';
+  ctx.fillText(isA?'АМПЕРМЕТР':'ВОЛЬТМЕТР',x,y-18);
+
+  // Циферблат — круглый экран
+  ctx.fillStyle=active?'#0a1a0a':'#181818';ctx.strokeStyle='#333';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(x,y+6,16,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+  // Значение
+  ctx.fillStyle=active?(isA?'#ff4040':'#4080ff'):'#444';
+  ctx.font=`bold ${val>=100?11:13}px "Share Tech Mono"`;ctx.textAlign='center';
+  ctx.fillText(val>0?val+unit:'---',x,y+11);
+
+  // Стрелка-индикатор (аналоговый вид)
+  if(active&&val>0){
+    const maxVal=isA?src.maxA||100:src.volt||220;
+    const ratio=Math.min(val/maxVal,1);
+    const ang=-Math.PI*0.8+ratio*Math.PI*1.6;
+    ctx.strokeStyle=isA?'#ff6060':'#6090ff';ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(x,y+6);
+    ctx.lineTo(x+Math.cos(ang)*12,y+6+Math.sin(ang)*12);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  if(selected||h2) selRing(x-44,y-30,88,60,6);
+}
+
+/* ── STICKERS ── */
+function toggleStickerMode(){
+  stickerMode=!stickerMode;
+  const btn=document.getElementById('btn-sticker');
+  btn.classList.toggle('active',stickerMode);
+  setHint(stickerMode?'ЛКМ = новый стикер | Тяни стикер = переместить | 2×ЛКМ = редактировать':'');
+  if(!stickerMode) render();
+}
+
+cvMain.addEventListener('click',e=>{
+  if(!stickerMode||drag||hStickerDrag) return;
+  const{x,y}=cpos2(e,cvMain);
+  if(hitSticker(x,y)) return; // don't create on existing
+  const id='stk_'+Date.now();
+  stickers.push({id,x,y,text:'Заметка'});
+  openStickerEdit(id,e.clientX,e.clientY);
+  render();
+});
+
+function openStickerEdit(id,cx,cy){
+  const stk=stickers.find(s=>s.id===id); if(!stk) return;
+  editingSticker=id;
+  document.getElementById('stk-edit-'+id)?.remove();
+  const ta=document.createElement('textarea');
+  ta.id='stk-edit-'+id; ta.className='sticker-edit';
+  ta.value=stk.text;
+  ta.style.left=(stk.x*zoom+panX)+'px';
+  ta.style.top=(stk.y*zoom+panY)+'px';
+  ta.style.fontSize=(12*zoom)+'px';
+  ta.onblur=()=>{stk.text=ta.value||'Заметка';ta.remove();editingSticker=null;render()};
+  ta.onkeydown=e2=>{if(e2.key==='Escape') ta.blur()};
+  wrap.appendChild(ta); ta.focus(); ta.select();
+}
+
+// Sticker drag
+let hStickerDrag=null;
+let _stkDrag=null; // {stk, offX, offY}
+cvMain.addEventListener('mousedown',e=>{
+  if(e.button!==0||drawMode||!stickerMode) return;
+  const{x,y}=cpos2(e,cvMain);
+  const stk=hitSticker(x,y);
+  if(stk){_stkDrag={stk,offX:x-stk.x,offY:y-stk.y};e.stopPropagation()}
+});
+cvMain.addEventListener('mousemove',e=>{
+  if(!_stkDrag) return;
+  const{x,y}=cpos2(e,cvMain);
+  _stkDrag.stk.x=x-_stkDrag.offX;
+  _stkDrag.stk.y=y-_stkDrag.offY;
+  render();
+});
+document.addEventListener('mouseup',e=>{
+  if(_stkDrag){_stkDrag=null;hStickerDrag=null}
+});
+
+function _stickerSize(stk){
+  // measure text width using offscreen
+  ctx.save(); ctx.font=`12px "Share Tech Mono"`;
+  const lines=stk.text.split('\n');
+  const w=Math.max(60,Math.max(...lines.map(l=>ctx.measureText(l).width))+20);
+  const h=lines.length*16+16;
+  ctx.restore(); return{w,h};
+}
+
+function drawStickers(){
+  ctx.save(); ctx.font='12px "Share Tech Mono"';
+  for(const stk of stickers){
+    if(stk.id===editingSticker) continue;
+    const{x,y,text}=stk;
+    const lines=text.split('\n');
+    const w=Math.max(60,Math.max(...lines.map(l=>ctx.measureText(l).width))+20);
+    const h=lines.length*16+16;
+    const fc=10;
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.1)'; ctx.fillRect(x+2,y+2,w,h);
+    // Body
+    ctx.fillStyle='#fffde7'; ctx.strokeStyle='#f9a825';
+    ctx.lineWidth=1.5/zoom;
+    ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+    // Fold corner
+    ctx.fillStyle='#f0c000';
+    ctx.beginPath();ctx.moveTo(x+w-fc,y);ctx.lineTo(x+w,y+fc);ctx.lineTo(x+w,y);ctx.closePath();ctx.fill();
+    // Text
+    ctx.fillStyle='#3a2800';
+    lines.forEach((ln,i)=>ctx.fillText(ln,x+8,y+14+i*16));
+    // Hover ring
+    if(stickerMode){
+      ctx.strokeStyle='rgba(249,168,37,0.5)';ctx.lineWidth=2/zoom;ctx.setLineDash([3/zoom,2/zoom]);
+      ctx.strokeRect(x-2/zoom,y-2/zoom,w+4/zoom,h+4/zoom); ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+}
+
+function hitSticker(x,y){
+  ctx.save(); ctx.font='12px "Share Tech Mono"';
+  let found=null;
+  for(let i=stickers.length-1;i>=0;i--){
+    const stk=stickers[i];
+    const lines=stk.text.split('\n');
+    const w=Math.max(60,Math.max(...lines.map(l=>ctx.measureText(l).width))+20);
+    const h=lines.length*16+16;
+    if(x>=stk.x&&x<=stk.x+w&&y>=stk.y&&y<=stk.y+h){found=stk;break}
+  }
+  ctx.restore(); return found;
+}
+
+/* ── UTIL ── */
+function fillRR(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+/* ═══════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════ */
+resize();
+initScene();
+render();
+</script>
+</body>
+</html>
